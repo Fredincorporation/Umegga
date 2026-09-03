@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return reply(res, 405, { error: 'Method not allowed' });
   if (!process.env.AI_API_KEY) return reply(res, 503, { error: 'AI_API_KEY is not configured.' });
 
-  const body = req.body || {};
+  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
   const message = typeof body.message === 'string' ? body.message.trim() : '';
   if (!message) return reply(res, 400, { error: 'message is required' });
 

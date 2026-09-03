@@ -53,12 +53,11 @@ export async function generateAgentReply(
         conversation: conversation.slice(-12),
       }),
     });
-    if (response.ok) {
-      const result = await response.json() as { reply?: string };
-      if (result.reply?.trim()) return result.reply.trim();
-    }
-  } catch {
-    // Fall back only when the AI service cannot be reached.
+    const result = await response.json().catch(() => ({})) as { reply?: string; error?: string };
+    if (response.ok && result.reply?.trim()) return result.reply.trim();
+    console.error(`[Agent AI] Request failed (${response.status}):`, result.error || 'No reply returned.');
+  } catch (error) {
+    console.error('[Agent AI] Endpoint unavailable:', error);
   }
   return fallbackReply(agent, message);
 }
