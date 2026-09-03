@@ -7,6 +7,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+function logSupabaseError(operation: string, error: unknown) {
+  console.error(`[Supabase] ${operation} failed:`, error);
+}
+
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
@@ -14,7 +18,11 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 export async function loadPersistedAgents(): Promise<AgentState[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from('Umegga_agents').select('state');
-  if (error || !data) return [];
+  if (error) {
+    logSupabaseError('load agents', error);
+    return [];
+  }
+  if (!data) return [];
   // Dedupe by agent id: the table PK prevents duplicate rows, but the stored
   // snapshot itself could contain repeated entries from older saves.
   const seen = new Set<string>();
@@ -34,7 +42,11 @@ export async function loadChatMessages(limit = 80): Promise<ChatMessage[]> {
     .select('message')
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (error || !data) return [];
+  if (error) {
+    logSupabaseError('load chat messages', error);
+    return [];
+  }
+  if (!data) return [];
   const seen = new Set<string>();
   const messages: ChatMessage[] = [];
   (data as Array<{ message: ChatMessage }>).forEach((row) => {
@@ -53,7 +65,11 @@ export async function loadWorldEvents(limit = 200): Promise<Array<{ id: string; 
     .select('id, event_type, payload')
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (error || !data) return [];
+  if (error) {
+    logSupabaseError('load world events', error);
+    return [];
+  }
+  if (!data) return [];
   const seen = new Set<string>();
   return (data as Array<{ id: string; event_type: string; payload: any }>).filter((row) => {
     if (!row?.id || seen.has(row.id)) return false;

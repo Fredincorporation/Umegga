@@ -53,6 +53,15 @@ agent-chat service reads `AI_API_KEY`, `AI_API_URL`, `AI_MODEL`, and
 `AGENT_CHAT_PORT`. The browser uses `VITE_AGENT_CHAT_ENDPOINT` to reach that
 service through the Vite development proxy.
 
+For Vercel, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under the
+Production environment variables, then redeploy. Apply the SQL migrations to
+the same Supabase project before opening the deployed app:
+
+```bash
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+```
+
 Keep `.env` private. In particular, `AI_API_KEY` must only be read by the
 server-side chat process and must never be exposed as a `VITE_` variable.
 
