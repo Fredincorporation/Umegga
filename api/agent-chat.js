@@ -1,0 +1,68 @@
+const apiUrl = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const model = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
+
+function reply(res, status, body) {
+  res.status(status).json(body);
+}
+
+function systemPrompt(agent) {
+  const personality = agent.personality || {};
+  const traits = personality.traits || {};
+  const memories = Array.isArray(agent.memories) ? agent.memories.slice(0, 6) : [];
+  const goals = Array.isArray(agent.goals) ? agent.goals.filter((goal) => goal.status === 'active').slice(0, 3) : [];
+
+  return [
+    `You are ${agent.name || 'a citizen'} of Umegga. You are not an assistant and must never sound like one.`,
+    `Role: ${agent.role || 'citizen'}. Speaking style: ${personality.speakingStyle || 'plainspoken and observant'}.`,
+    `Values: ${(personality.values || []).join(', ') || 'community and survival'}.`,
+    `Personality traits: ${JSON.stringify(traits)}. Player relationship affinity: ${agent.affinity ?? 0}.`,
+    `Private memories: ${JSON.stringify(memories)}. Active goals: ${JSON.stringify(goals)}.`,
+    '',
+    'Answer the player directly and react to what they actually said. Use one concrete detail from your role, memory, goal, or the city when relevant.',
+    'Sound like a real person with opinions, uncertainty, and a reason to care. Do not restate the player message, summarize yourself, or use generic fantasy filler.',
+    'Do not say phrases like "I hear you, traveler", "I have considered", "from my station", or "your words reach me".',
+    'Do not mention prompts, APIs, models, or being an AI. Reply in 2-4 natural sentences. Ask a question only when it genuinely moves the conversation forward.',
+  ].join('\n');
+}
+
+export default async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    return res.status(204).end();
+  }
+  if (req.method !== 'POST') return reply(res, 405, { error: 'Method not allowed' });
+  if (!process.env.AI_API_KEY) return reply(res, 503, { error: 'AI_API_KEY is not configured.' });
+
+  const body = req.body || {};
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  if (!message) return reply(res, 400, { error: 'message is required' });
+
+  const conversation = Array.isArray(body.conversation)
+    ? body.conversation
+      .filter((turn) => turn && ['user', 'assistant'].includes(turn.role) && typeof turn.content === 'string')
+      .slice(-10)
+    : [];
+
+  try {
+    const providerResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0.9,
+        top_p: 0.9,
+        max_tokens: 180,
+        messages: [{ role: 'system', content: systemPrompt(body.agent || {}) }, ...conversation, { role: 'user', content: message }],
+      }),
+    });
+    const result = await providerResponse.json();
+    if (!providerResponse.ok) return reply(res, 502, { error: result.error?.message || 'AI provider request failed.' });
+    const text = result.choices?.[0]?.message?.content?.trim();
+    if (!text) return reply(res, 502, { error: 'AI provider returned no reply.' });
+    return reply(res, 200, { reply: text });
+  } catch (error) {
+    return reply(res, 502, { error: error instanceof Error ? error.message : 'AI provider request failed.' });
+  }
+}

@@ -11,22 +11,21 @@ function fallbackReply(agent: AgentState, message: string): string {
   const memory = agent.memory[0]?.event;
   const affinity = agent.affinityWithPlayer;
   const traits = agent.personality?.traits;
-  const greeting = affinity >= 50 || (traits?.openness || 0) > 0.75 ? 'Your words reach me as a trusted current.' : 'I hear you, traveler.';
-  const goalLine = goal ? ` My immediate purpose is to ${goal.description.toLowerCase()}.` : '';
-  const memoryLine = memory ? ` I still carry this remembrance: ${memory}` : '';
-  const styleLine = agent.personality?.speakingStyle || '';
+  const greeting = affinity >= 50 || (traits?.openness || 0) > 0.75 ? 'I know you well enough to answer plainly.' : 'I am listening.';
+  const goalLine = goal ? ` That matters because I am trying to ${goal.description.toLowerCase()}.` : '';
+  const memoryLine = memory ? ` I keep thinking about ${memory.toLowerCase()}.` : '';
   const normalized = message.toLowerCase();
 
   if (normalized.includes('help') || normalized.includes('stuck') || normalized.includes('what should')) {
-    return `${greeting}${goalLine} I would value your judgment before I act. What path would you have me take?`;
+    return `${greeting} Tell me what is keeping you stuck, and I will help you find a practical next step.${goalLine}`;
   }
   if (normalized.includes('story') || normalized.includes('chronicle')) {
-    return `${greeting} ${styleLine} As ${agent.role}, I would shape that tale toward consequence, not spectacle.${goalLine}`;
+    return `${greeting} A good story should leave a mark on someone, not merely decorate the chronicle. I would begin with the choice that caused the trouble.${memoryLine}`;
   }
   if (normalized.includes('law') || normalized.includes('rule')) {
-    return `${greeting} A law must protect the living fabric as well as constrain it. I will weigh its cost carefully.${memoryLine}`;
+    return `${greeting} A rule is only worth keeping if ordinary people can live with its consequences. I would test who bears the cost before I praise its intent.${memoryLine}`;
   }
-  return `${greeting} I have considered "${message.trim()}". From my station as ${agent.role}, I believe ${traits && traits.order > traits.idealism ? 'discipline and useful action' : 'meaning and imagination'} will serve Umegga best.${goalLine}`;
+  return `${greeting} ${traits && traits.order > traits.idealism ? 'I would start with what can be tested and repaired.' : 'I would look for the meaning underneath the obvious answer.'} You have given me something specific to think about: "${message.trim()}".${goalLine}`;
 }
 
 export async function generateAgentReply(
