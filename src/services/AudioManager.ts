@@ -2,7 +2,6 @@ const TRACK_URLS = ['/music/1.ogg', '/music/2.ogg'];
 const TRACK_STATE_KEY = 'umega-music-track';
 const POSITION_STATE_KEY = 'umega-music-position';
 const DEFAULT_VOLUME = 0.45;
-const FADE_DURATION_MS = 900;
 
 class AudioManager {
   private readonly tracks = new Map<number, HTMLAudioElement>();
@@ -11,7 +10,6 @@ class AudioManager {
   private volume = DEFAULT_VOLUME;
   private started = false;
   private startPosition = 0;
-  private fadeInterval?: number;
   private unlockHandler?: () => void;
 
   start() {
@@ -21,7 +19,7 @@ class AudioManager {
     this.startPosition = this.readPosition();
     this.currentTrack = this.getTrack(this.currentIndex);
     this.currentTrack.volume = this.volume;
-    this.currentTrack.autoplay = true;
+    this.currentTrack.autoplay = false;
     this.currentTrack.addEventListener('loadedmetadata', this.handleCurrentMetadata);
 
     this.unlockHandler = () => {
@@ -54,7 +52,7 @@ class AudioManager {
 
     const track = new Audio(TRACK_URLS[index]);
     track.preload = 'auto';
-    track.autoplay = true;
+    track.autoplay = false;
     track.volume = this.volume;
     track.addEventListener('ended', this.handleTrackEnded);
     this.tracks.set(index, track);
@@ -63,6 +61,15 @@ class AudioManager {
 
   private async playCurrentTrack() {
     if (!this.currentTrack) return;
+
+    // Ensure all other tracks are paused so only one track plays at a time
+    this.tracks.forEach((track, idx) => {
+      if (idx !== this.currentIndex) {
+        track.pause();
+        track.currentTime = 0;
+      }
+    });
+
     if (this.currentTrack.readyState >= HTMLMediaElement.HAVE_METADATA && this.startPosition > 0) {
       this.currentTrack.currentTime = Math.min(this.startPosition, Math.max(0, this.currentTrack.duration - 0.25));
       this.startPosition = 0;
@@ -85,7 +92,10 @@ class AudioManager {
   private preloadNextTrack() {
     const nextIndex = (this.currentIndex + 1) % TRACK_URLS.length;
     const nextTrack = this.getTrack(nextIndex);
-    if (nextTrack.readyState === HTMLMediaElement.HAVE_NOTHING) nextTrack.load();
+    nextTrack.autoplay = false;
+    if (nextTrack.readyState === HTMLMediaElement.HAVE_NOTHING) {
+      nextTrack.load();
+    }
   }
 
   private readonly handleCurrentMetadata = () => {
@@ -94,49 +104,27 @@ class AudioManager {
 
   private readonly handleTrackEnded = () => {
     const oldTrack = this.currentTrack;
-    if (!oldTrack) return;
+    if (oldTrack) {
+      oldTrack.pause();
+      oldTrack.currentTime = 0;
+    }
+
     const nextIndex = (this.currentIndex + 1) % TRACK_URLS.length;
     const nextTrack = this.getTrack(nextIndex);
-    const beginTransition = () => {
-      nextTrack.removeEventListener('canplay', beginTransition);
-      this.currentIndex = nextIndex;
-      this.currentTrack = nextTrack;
-      this.startPosition = 0;
-      nextTrack.currentTime = 0;
-      nextTrack.volume = 0;
+
+    this.currentIndex = nextIndex;
+    this.currentTrack = nextTrack;
+    this.startPosition = 0;
+    nextTrack.currentTime = 0;
+    nextTrack.volume = this.volume;
+    if (oldTrack) {
       nextTrack.muted = oldTrack.muted;
-      void nextTrack.play().then(() => {
-        this.crossfade(oldTrack, nextTrack);
-        this.saveState();
-        this.preloadNextTrack();
-      }).catch(() => {
-        nextTrack.volume = this.volume;
-      });
-    };
-
-    if (nextTrack.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-      beginTransition();
-    } else {
-      nextTrack.addEventListener('canplay', beginTransition, { once: true });
-      nextTrack.load();
     }
-  };
 
-  private crossfade(oldTrack: HTMLAudioElement, nextTrack: HTMLAudioElement) {
-    if (this.fadeInterval) window.clearInterval(this.fadeInterval);
-    const startedAt = performance.now();
-    this.fadeInterval = window.setInterval(() => {
-      const progress = Math.min(1, (performance.now() - startedAt) / FADE_DURATION_MS);
-      oldTrack.volume = this.volume * (1 - progress);
-      nextTrack.volume = this.volume * progress;
-      if (progress >= 1) {
-        if (this.fadeInterval) window.clearInterval(this.fadeInterval);
-        this.fadeInterval = undefined;
-        oldTrack.pause();
-        oldTrack.currentTime = 0;
-      }
-    }, 40);
-  }
+    void this.playCurrentTrack().then(() => {
+      this.saveState();
+    });
+  };
 
   private saveState = () => {
     if (!this.currentTrack) return;

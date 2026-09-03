@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "agent-chat": "node --env-file=.env scripts/agent-chat-server.js",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

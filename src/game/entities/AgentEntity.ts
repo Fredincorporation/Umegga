@@ -7,6 +7,7 @@ import type { BaseScene, PortalDef } from '../scenes/BaseScene';
 
 export class AgentEntity extends Phaser.GameObjects.Container {
   public agentId: string;
+  public agentData: AgentState;
   public sprite: Phaser.GameObjects.Sprite;
   private nameLabel: Phaser.GameObjects.Text;
   private thoughtBubbleContainer: Phaser.GameObjects.Container;
@@ -19,14 +20,21 @@ export class AgentEntity extends Phaser.GameObjects.Container {
   private speed = 75;
   private currentAnimType: AnimationType = 'idle';
   public characterId: AgentState['characterId'];
+  private isConversing = false;
+  private conversationCooldown = 0;
+  private obstructionCooldown = 0;
+  private lastObstructionNotice = 0;
+  public isEngagedWithPlayer = false;
 
   constructor(scene: Phaser.Scene, agentData: AgentState) {
     super(scene, agentData.x, agentData.y);
     this.agentId = agentData.id;
+    this.agentData = agentData;
     this.characterId = agentData.characterId;
 
     const charMeta = SUPPORTED_CHARACTERS[this.characterId];
     const accentColor = charMeta?.accentColor || '#38bdf8';
+    this.speed = Math.round((charMeta?.baseSpeed || 150) * 0.55);
 
     // 1. Soft Shadow / Base
     const shadow = scene.add.ellipse(0, 16, 26, 12, 0x000000, 0.4);
@@ -49,6 +57,7 @@ export class AgentEntity extends Phaser.GameObjects.Container {
       padding: { x: 5, y: 2 },
     }).setOrigin(0.5, 0.5);
     this.add(this.nameLabel);
+    this.syncAgentData(agentData);
 
     // 4. Interactive Thought Bubble
     this.thoughtBubbleContainer = scene.add.container(0, -56);
@@ -70,15 +79,14 @@ export class AgentEntity extends Phaser.GameObjects.Container {
     this.thoughtBubbleContainer.setAlpha(0); // Initially hidden, fades in on thought
     this.add(this.thoughtBubbleContainer);
 
-    // 5. Physics Body
+    // 5. Physics Body: Solid blocking dynamic body
     scene.physics.world.enable(this);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(22, 22);
-    body.setOffset(-11, 4);
+    body.setSize(24, 24);
+    body.setOffset(-12, 4);
     body.setCollideWorldBounds(true);
-    body.setImmovable(false);
-    body.setDamping(true);
-    body.setDrag(0.001);
+    body.pushable = false;
+    body.setImmovable(true);
 
     // 6. Interactive Click / Hover
     this.setSize(32, 48);
@@ -96,13 +104,16 @@ export class AgentEntity extends Phaser.GameObjects.Container {
     });
 
     this.on('pointerdown', () => {
-      // Select agent in Zustand store to open React Inspector
-      useGameStore.getState().setSelectedAgentId(this.agentId);
+      // Select agent in Zustand store to open React Inspector & trigger talk
+      this.isEngagedWithPlayer = true;
+      useGameStore.getState().engageAgent(this.agentId);
       this.showThought('Greetings, Storyweaver!', 4000);
       AnimationManager.playAnim(this.sprite, this.characterId, 'talk');
       setTimeout(() => {
-        AnimationManager.playAnim(this.sprite, this.characterId, this.currentAnimType);
-      }, 2000);
+        if (this.isEngagedWithPlayer) {
+          AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
+        }
+      }, 2500);
     });
 
     // Start Idle Animation
@@ -119,6 +130,14 @@ export class AgentEntity extends Phaser.GameObjects.Container {
   public setTargetDestination(x: number, y: number) {
     this.targetX = x;
     this.targetY = y;
+  }
+
+  public syncAgentData(agentData: AgentState) {
+    this.agentData = agentData;
+    const allied = (agentData.relationships || []).some((relationship) => relationship.allied);
+    this.nameLabel.setText(allied ? `ALLIED - ${agentData.name}` : agentData.name);
+    this.nameLabel.setColor(allied ? '#fbbf24' : '#f8fafc');
+    if (agentData.currentThought && this.thoughtBubbleContainer && this.thoughtText && !this.thoughtBubbleContainer.alpha) this.thoughtText.setText(agentData.currentThought.length > 35 ? `${agentData.currentThought.substring(0, 32)}...` : agentData.currentThought);
   }
 
   /**
@@ -146,6 +165,73 @@ export class AgentEntity extends Phaser.GameObjects.Container {
     });
   }
 
+  public hideThought() {
+    this.scene.tweens.killTweensOf(this.thoughtBubbleContainer);
+    this.thoughtBubbleContainer.setAlpha(0);
+  }
+
+  /**
+   * Trigger a mutual conversation between this agent and another nearby agent
+   */
+  public startConversationWith(otherAgent: AgentEntity) {
+    if (this.isConversing || otherAgent.isConversing) return;
+    this.isConversing = true;
+    otherAgent.isConversing = true;
+    this.conversationCooldown = 12000;
+    otherAgent.conversationCooldown = 12000;
+
+    // Stop both agents
+    this.targetX = null;
+    this.targetY = null;
+    otherAgent.targetX = null;
+    otherAgent.targetY = null;
+
+    const bodyA = this.body as Phaser.Physics.Arcade.Body;
+    const bodyB = otherAgent.body as Phaser.Physics.Arcade.Body;
+    bodyA?.setVelocity(0, 0);
+    bodyB?.setVelocity(0, 0);
+
+    // Face each other
+    this.sprite.setFlipX(this.x > otherAgent.x);
+    otherAgent.sprite.setFlipX(otherAgent.x > this.x);
+
+    // Play talking animation
+    AnimationManager.playAnim(this.sprite, this.characterId, 'talk');
+    AnimationManager.playAnim(otherAgent.sprite, otherAgent.characterId, 'talk');
+
+    const lineA = this.agentData.personality?.eventReactions.stories || 'The city has changed since we last spoke.';
+    const lineB = otherAgent.agentData.personality?.eventReactions.alliances || 'Then let us decide what that change asks of us.';
+
+    this.showThought(lineA, 3500);
+    this.scene.time.delayedCall(1600, () => {
+      if (otherAgent.active) {
+        otherAgent.showThought(lineB, 3500);
+      }
+    });
+
+    useGameStore.getState().addMessage({
+      sender: `${this.agentData.name} & ${otherAgent.agentData.name}`,
+      text: `💬 "${lineA}" — "${lineB}"`,
+      type: 'agent',
+    });
+    useGameStore.getState().communicateWithAgent(
+      this.agentId,
+      otherAgent.agentId,
+      `${lineA} — ${lineB}`,
+    );
+    useGameStore.getState().evolveAgentPersonality(this.agentId, { openness: 0.012, empathy: 0.01 }, `A conversation with ${otherAgent.agentData.name} widened my perspective.`);
+    useGameStore.getState().evolveAgentPersonality(otherAgent.agentId, { openness: 0.012, empathy: 0.01 }, `A conversation with ${this.agentData.name} widened my perspective.`);
+
+    this.scene.time.delayedCall(4500, () => {
+      this.isConversing = false;
+      otherAgent.isConversing = false;
+      AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
+      if (otherAgent.active) {
+        AnimationManager.playAnim(otherAgent.sprite, otherAgent.characterId, 'idle');
+      }
+    });
+  }
+
   /**
    * AI Autonomous Update Loop
    */
@@ -153,35 +239,155 @@ export class AgentEntity extends Phaser.GameObjects.Container {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
+    // Check engagement with player
+    const player = (this.scene as BaseScene).player;
+    if (player) {
+      const isSelected = useGameStore.getState().selectedAgentId === this.agentId;
+      const distToPlayer = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+
+      if (isSelected && distToPlayer <= 130) {
+        this.isEngagedWithPlayer = true;
+      }
+
+      if (this.isEngagedWithPlayer) {
+        // Disengage once the player has moved away
+        if (distToPlayer > 120) {
+          this.isEngagedWithPlayer = false;
+          if (isSelected) {
+            useGameStore.getState().setSelectedAgentId(null);
+          }
+          this.wanderTimer = 0;
+        } else {
+          // Remain completely still facing the player
+          body.setVelocity(0, 0);
+          this.targetX = null;
+          this.targetY = null;
+          this.wanderTimer = 0;
+          this.sprite.setFlipX(this.x > player.x);
+
+          if (this.currentAnimType !== 'idle' && this.currentAnimType !== 'talk') {
+            this.currentAnimType = 'idle';
+            AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
+            this.agentData.currentAnim = 'idle';
+            this.agentData.isMoving = false;
+            useGameStore.getState().updateAgentPosition(this.agentId, this.x, this.y, 'idle', false);
+          }
+          return;
+        }
+      }
+    }
+
+    if (this.conversationCooldown > 0) {
+      this.conversationCooldown -= delta;
+    }
+    if (this.obstructionCooldown > 0) this.obstructionCooldown -= delta;
+
+    if (this.isConversing) {
+      body.setVelocity(0, 0);
+      return;
+    }
+
+    // Check for nearby agents to converse with
+    if (this.conversationCooldown <= 0 && Math.random() < 0.02) {
+      const baseScene = this.scene as BaseScene;
+      if (baseScene.agents) {
+        baseScene.agents.forEach((other) => {
+          if (other !== this && !other.isConversing && other.conversationCooldown <= 0) {
+            const dist = Phaser.Math.Distance.Between(this.x, this.y, other.x, other.y);
+            if (dist < 80 && dist > 18) {
+              this.startConversationWith(other);
+            }
+          }
+        });
+      }
+    }
+
     this.wanderTimer += delta;
 
-    // Autonomous wandering logic if no explicit target
+    // Autonomous purposeful wandering logic
     if (this.targetX === null && this.wanderTimer > this.nextWanderInterval) {
       this.wanderTimer = 0;
-      this.nextWanderInterval = 3000 + Math.random() * 5000;
+      this.nextWanderInterval = 3500 + Math.random() * 4500;
 
-      // 60% chance to pick a nearby spot, 40% chance to stay idling
-      if (Math.random() < 0.75) {
+      // 70% chance to pick a purposeful nearby spot
+      if (Math.random() < 0.7) {
+        const baseScene = this.scene as BaseScene;
         const charMeta = SUPPORTED_CHARACTERS[this.characterId];
-        const portals = (this.scene as BaseScene).getPortalDefinitions?.() || [];
-        const portal = portals.length > 0 && Math.random() < 0.3
-          ? portals[Math.floor(Math.random() * portals.length)]
-          : null;
-        const anchor = charMeta?.defaultPosition || { x: 400, y: 400 };
-        const rx = portal?.x ?? anchor.x + (Math.random() * 420 - 210);
-        const ry = portal?.y ?? anchor.y + (Math.random() * 420 - 210);
-        this.targetX = Phaser.Math.Clamp(rx, 64, this.scene.physics.world.bounds.width - 64);
-        this.targetY = Phaser.Math.Clamp(ry, 64, this.scene.physics.world.bounds.height - 64);
+        const buildings = baseScene.getBuildings?.() || [];
+        const portals = baseScene.getPortalDefinitions?.() || [];
+        const activeGoal = (this.agentData.goals || [])
+          .filter((goal) => goal.status === 'active')
+          .sort((left, right) => right.priority - left.priority)[0];
+        const trustedAlly = (this.agentData.relationships || [])
+          .filter((relationship) => relationship.trust >= 60)
+          .map((relationship) => baseScene.agents.get(relationship.agentId))
+          .find((ally): ally is AgentEntity => Boolean(ally && ally.active));
+
+        // Role-based target preference
+        let targetSpot = charMeta?.defaultPosition || { x: 600, y: 600 };
+        if (trustedAlly && Math.random() < 0.45) {
+          targetSpot = { x: trustedAlly.x + 36, y: trustedAlly.y + 24 };
+        } else if (activeGoal?.targetScene && activeGoal.targetScene !== this.agentData.currentScene) {
+          targetSpot = { x: 600, y: 600 };
+        } else if (activeGoal?.targetAgentId) {
+          const targetAgent = baseScene.agents.get(activeGoal.targetAgentId);
+          targetSpot = targetAgent ? { x: targetAgent.x, y: targetAgent.y } : targetSpot;
+        } else if (buildings.length > 0 && Math.random() < 0.5) {
+          const bld = buildings[Math.floor(Math.random() * buildings.length)];
+          targetSpot = { x: bld.x + (Math.random() * 60 - 30), y: bld.y + 40 };
+        } else if (portals.length > 0 && Math.random() < 0.25) {
+          const port = portals[Math.floor(Math.random() * portals.length)];
+          targetSpot = { x: port.x, y: port.y + 30 };
+        } else {
+          targetSpot = {
+            x: targetSpot.x + (Math.random() * 300 - 150),
+            y: targetSpot.y + (Math.random() * 300 - 150),
+          };
+        }
+
+        this.targetX = Phaser.Math.Clamp(targetSpot.x, 70, this.scene.physics.world.bounds.width - 70);
+        this.targetY = Phaser.Math.Clamp(targetSpot.y, 70, this.scene.physics.world.bounds.height - 70);
       } else {
-        // Idling thoughts
-        const thoughts = [
+        // In-character role thoughts
+        const roleThoughts: Record<string, string[]> = {
+          scholar: [
+            'Examining the ancient scrolls of reality.',
+            'The cosmic tapestry breathes with stories.',
+            'A quiet hour for sacred geometry.',
+          ],
+          arbiter: [
+            'Inspecting civic order across the paved plazas.',
+            'No unauthorized paradoxes detected.',
+            'The laws of equilibrium remain intact.',
+          ],
+          artisan: [
+            'The star-ore sings upon the anvil.',
+            'Tempering reality with forge fire.',
+            'A new tool is waiting to be shaped.',
+          ],
+          oracle: [
+            'Gazing into parallel timeline branches.',
+            'The astral basin reflects forgotten skies.',
+            'Prophetic currents stir the night.',
+          ],
+          botanist: [
+            'Nurturing spirit blooms in cobblestone cracks.',
+            'The World-Root pulses with vigor.',
+            'Harmonizing with ancient chlorophyll.',
+          ],
+          bard: [
+            'Listening to the acoustic echo of the spires.',
+            'Composing a hymn for the next chronicle.',
+            'Melodies weave the fabric of memory.',
+          ],
+        };
+
+        const list = roleThoughts[SUPPORTED_CHARACTERS[this.characterId]?.role?.toLowerCase()] || [
+          'Observing the sanctuary.',
           'The sky shines with potent mana.',
-          'Studying the ancient stones...',
-          'A quiet moment in Umega.',
-          'Formulating a new decree.',
-          'Listening to the wind spires.',
+          'Pondering the city fabric.',
         ];
-        const randomThought = thoughts[Math.floor(Math.random() * thoughts.length)];
+        const randomThought = list[Math.floor(Math.random() * list.length)];
         this.showThought(randomThought, 3000);
       }
     }
@@ -194,6 +400,19 @@ export class AgentEntity extends Phaser.GameObjects.Container {
 
     // Moving towards target
     if (this.targetX !== null && this.targetY !== null) {
+      if (body.blocked.none === false && this.obstructionCooldown <= 0) {
+        this.obstructionCooldown = 1800;
+        this.targetX = null;
+        this.targetY = null;
+        const now = Date.now();
+        if (now - this.lastObstructionNotice > 3000) {
+          this.lastObstructionNotice = now;
+          useGameStore.getState().addAgentThought(this.agentId, 'This path is blocked. I will find another route.');
+          useGameStore.getState().addAgentMemory(this.agentId, 'A prop obstructed my route, so I rerouted.', 6);
+        }
+        body.setVelocity(0, 0);
+        return;
+      }
       const dist = Phaser.Math.Distance.Between(this.x, this.y, this.targetX, this.targetY);
 
       const portal = ((this.scene as BaseScene).getPortalDefinitions?.() || []).find((candidate: PortalDef) =>
@@ -204,42 +423,69 @@ export class AgentEntity extends Phaser.GameObjects.Container {
         return;
       }
 
-      if (dist < 8) {
+      if (dist < 10) {
         // Arrived at destination
         this.targetX = null;
         this.targetY = null;
         body.setVelocity(0, 0);
 
+        const activeGoal = (this.agentData.goals || []).find((goal) => goal.status === 'active');
+        if (activeGoal && (!activeGoal.targetAgentId || this.scene.scene.key === this.agentData.currentScene)) {
+          useGameStore.getState().completeAgentGoal(this.agentId, activeGoal.id);
+          this.showThought(`Goal achieved: ${activeGoal.title}`, 3500);
+        }
+
         if (this.currentAnimType !== 'idle') {
           this.currentAnimType = 'idle';
           AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
+          this.agentData.x = this.x;
+          this.agentData.y = this.y;
+          this.agentData.currentAnim = 'idle';
+          this.agentData.isMoving = false;
           useGameStore.getState().updateAgentPosition(this.agentId, this.x, this.y, 'idle', false);
         }
       } else {
-        // Move towards target
+        // Calculate speed with active laws
+        const worldLaws = useGameStore.getState().world.activeLaws;
+        let speedMult = 1.0;
+        worldLaws.forEach((law) => {
+          if (law.active && law.effect.type === 'speed_boost') {
+            speedMult *= law.effect.magnitude;
+          }
+        });
+
+        const currentSpeed = this.speed * speedMult;
         const angle = Phaser.Math.Angle.Between(this.x, this.y, this.targetX, this.targetY);
-        const vx = Math.cos(angle) * this.speed;
-        const vy = Math.sin(angle) * this.speed;
+        const vx = Math.cos(angle) * currentSpeed;
+        const vy = Math.sin(angle) * currentSpeed;
 
         body.setVelocity(vx, vy);
 
         // Direction facing
         if (Math.abs(vx) > Math.abs(vy)) {
           this.sprite.setFlipX(vx < 0);
-        } else {
-          this.sprite.setFlipX(this.sprite.flipX);
         }
 
         if (this.currentAnimType !== 'walk') {
           this.currentAnimType = 'walk';
           AnimationManager.playAnim(this.sprite, this.characterId, 'walk');
+          this.agentData.currentAnim = 'walk';
+          this.agentData.isMoving = true;
           useGameStore.getState().updateAgentPosition(this.agentId, this.x, this.y, 'walk', true);
         }
       }
     } else {
       body.setVelocity(0, 0);
+
+      const urgentGoal = (this.agentData.goals || []).find((goal) => goal.status === 'active' && goal.priority >= 9);
+      if (urgentGoal && this.wanderTimer > 30000 && Math.random() < 0.002) {
+        useGameStore.getState().requestHumanIntervention(
+          this.agentId,
+          `I have stalled while pursuing "${urgentGoal.title}".`,
+          `Please advise how I should proceed with ${urgentGoal.type}.`,
+        );
+        this.wanderTimer = 0;
+      }
     }
   }
-
-  
 }

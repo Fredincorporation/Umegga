@@ -16,6 +16,7 @@ import {
   Wifi,
   ChevronDown,
   MapPin,
+  Shield,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -29,6 +30,8 @@ export const HUD: React.FC = () => {
     activePanel,
     setActivePanel,
     setSelectedAgentId,
+    godMode,
+    setGodMode,
   } = useGameStore();
 
   const [charPickerOpen, setCharPickerOpen] = useState(false);
@@ -170,19 +173,48 @@ export const HUD: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: City Mana Gauge */}
-        <div className="hidden md:flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/60 rounded-xl px-4 py-2 pointer-events-auto shadow-xl">
-          <Zap className="w-4 h-4 text-sky-400 animate-pulse" />
-          <div className="w-36">
-            <div className="flex justify-between text-[11px] mb-1 font-mono">
-              <span className="text-slate-400">{world.cityName} Mana</span>
-              <span className="text-sky-300 font-semibold">{currentAreaMana} / 1000</span>
+        <button
+          onClick={() => setGodMode(!godMode)}
+          className={`pointer-events-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${godMode ? 'border-amber-400/70 bg-amber-500/20 text-amber-200' : 'border-slate-700 bg-slate-900/90 text-slate-400 hover:text-white'}`}
+          title="Toggle God Mode"
+        >
+          <Shield className="h-3.5 w-3.5" />
+          {godMode ? 'God Mode' : 'Observer'}
+        </button>
+
+        {/* Center: Dual Mana Gauges (City & Player) */}
+        <div className="hidden md:flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-slate-700/60 rounded-xl px-4 py-2 pointer-events-auto shadow-xl">
+          {/* Player Mana */}
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-800">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <div className="w-32">
+              <div className="flex justify-between text-[11px] mb-1 font-mono">
+                <span className="text-slate-400">Player Mana</span>
+                <span className="text-amber-300 font-semibold">{player.mana} / 500</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, (player.mana / 500) * 100)}%` }}
+                />
+              </div>
             </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-sky-500 via-indigo-500 to-amber-400 rounded-full transition-all duration-500"
-                style={{ width: `${(currentAreaMana / 1000) * 100}%` }}
-              />
+          </div>
+
+          {/* District / City Mana */}
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-sky-400 animate-pulse" />
+            <div className="w-32">
+              <div className="flex justify-between text-[11px] mb-1 font-mono">
+                <span className="text-slate-400">Realm Mana</span>
+                <span className="text-sky-300 font-semibold">{currentAreaMana} / 1000</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-sky-500 via-indigo-500 to-amber-400 rounded-full transition-all duration-500"
+                  style={{ width: `${(currentAreaMana / 1000) * 100}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -231,7 +263,7 @@ export const HUD: React.FC = () => {
                           const currentActive = typeof window !== 'undefined'
                             ? (window as any).gameInstance?.scene?.getScenes(true)?.[0]
                             : null;
-                          if (selectedAgent?.currentScene && currentActive && selectedAgent.currentScene !== player.currentScene) {
+                          if (selectedAgent?.currentScene && currentActive) {
                             currentActive.scene.start(selectedAgent.currentScene, {
                               spawnX: selectedAgent.x + 48,
                               spawnY: selectedAgent.y,
@@ -278,6 +310,7 @@ export const HUD: React.FC = () => {
           >
             <Scroll className="w-4 h-4 text-sky-400" />
             <span>Weave Story</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-950/80 border border-sky-400/40 text-sky-300 font-mono">35m</span>
           </button>
 
           {/* Enact Law */}
@@ -290,6 +323,7 @@ export const HUD: React.FC = () => {
           >
             <Scale className="w-4 h-4 text-amber-400" />
             <span>Enact Law</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950/80 border border-amber-400/40 text-amber-300 font-mono">25m</span>
           </button>
 
           {/* Chronicles & Laws History */}

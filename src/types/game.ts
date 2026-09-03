@@ -35,6 +35,47 @@ export interface CharacterMeta {
   defaultPosition: { x: number; y: number };
   accentColor: string;
   badgeBg: string;
+  baseSpeed: number;
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  description: string;
+  objective: string;
+  targetType: 'talk' | 'story' | 'law' | 'travel' | 'mcp' | 'build' | 'alliance' | 'intervention' | 'personality_growth';
+  targetId?: string;
+  targetCount?: number;
+  currentCount?: number;
+  completed: boolean;
+  rewardMana: number;
+  rewardRenown: number;
+  category?: 'core' | 'personality_growth';
+  expiresAt?: string;
+  targetAgentId?: string;
+  rewardRelationship?: number;
+}
+
+export interface AgentPersonality {
+  traits: {
+    idealism: number;
+    order: number;
+    openness: number;
+    caution: number;
+    pride: number;
+    empathy: number;
+    curiosity: number;
+    ambition: number;
+  };
+  speakingStyle: string;
+  values: string[];
+  quirks: string[];
+  playerAttitude: string;
+  eventReactions: { stories: string; laws: string; alliances: string; conflict: string };
+  emotionalTendency: string;
+  trustThreshold: number;
+  helpWillingness: number;
+  growthFocus?: string;
 }
 
 export interface AgentMemory {
@@ -42,6 +83,38 @@ export interface AgentMemory {
   timestamp: string;
   event: string;
   importance: number; // 1-10
+  type?: 'observation' | 'conversation' | 'story' | 'law' | 'goal' | 'action';
+  subjectAgentId?: string;
+  scene?: SceneKey;
+}
+
+export interface AgentGoal {
+  id: string;
+  type: 'build' | 'communicate' | 'enforce_law' | 'gather_knowledge' | 'protect_area' | 'travel' | 'support_ally';
+  title: string;
+  description: string;
+  priority: number;
+  status: 'active' | 'completed' | 'blocked';
+  targetAgentId?: string;
+  targetScene?: SceneKey;
+  updatedAt: string;
+}
+
+export interface AgentRelationship {
+  agentId: string;
+  affinity: number; // -100 to 100
+  trust: number; // 0 to 100
+  allied?: boolean;
+  history: string[];
+}
+
+export interface InterventionRequest {
+  id: string;
+  agentId: string;
+  reason: string;
+  action: string;
+  createdAt: string;
+  status: 'pending' | 'accepted' | 'ignored';
 }
 
 export interface AgentState {
@@ -57,8 +130,11 @@ export interface AgentState {
   status: 'Pondering reality' | 'Patrolling the district' | 'Weaving runes' | 'Transmuting ores' | 'Consulting the stars' | 'Drafting decrees' | 'Resting';
   currentThought?: string;
   memory: AgentMemory[];
+  goals?: AgentGoal[];
+  relationships?: AgentRelationship[];
   affinityWithPlayer: number; // -100 to 100
   manaAffinity: string;
+  personality?: AgentPersonality;
 }
 
 export interface PlayerState {
@@ -78,6 +154,7 @@ export interface StoryEntry {
   id: string;
   title: string;
   content: string;
+  fullContent?: string;
   author: string;
   timestamp: string;
   impactSummary: string;
@@ -103,6 +180,17 @@ export interface LawEntry {
   effect: LawEffect;
 }
 
+export interface BuiltStructure {
+  id: string;
+  name: string;
+  type: string;
+  scene: SceneKey;
+  x: number;
+  y: number;
+  placedBy: string;
+  createdAt: string;
+}
+
 export interface WorldState {
   cityName: string;
   manaLevel: number; // 0 - 1000
@@ -111,6 +199,7 @@ export interface WorldState {
   worldAuraColor: string;
   activeLaws: LawEntry[];
   chronicles: StoryEntry[];
+  structures?: BuiltStructure[];
   timeOfDay: number; // 0 to 2400
   realityDistortion: number; // 0 to 1
 }

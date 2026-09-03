@@ -5,6 +5,7 @@ import { X, BookOpen, Scale, Scroll, Sparkles, ShieldCheck } from 'lucide-react'
 export const ChroniclesPanel: React.FC = () => {
   const { activePanel, setActivePanel, world } = useGameStore();
   const [tab, setTab] = useState<'stories' | 'laws'>('stories');
+  const [readingStoryId, setReadingStoryId] = useState<string | null>(null);
 
   if (activePanel !== 'chronicles') return null;
 
@@ -71,7 +72,7 @@ export const ChroniclesPanel: React.FC = () => {
                     {story.resonance}% Resonance
                   </span>
                 </div>
-                <p className="text-slate-300 leading-relaxed italic">"{story.content}"</p>
+                <p className="text-slate-300 leading-relaxed italic line-clamp-2">"{story.content}"</p>
                 <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800">
                   <div className="flex items-center gap-2">
                     <span>Woven by: <strong className="text-slate-200">{story.author}</strong></span>
@@ -80,6 +81,12 @@ export const ChroniclesPanel: React.FC = () => {
                   </div>
                   <span className="font-mono">{story.timestamp}</span>
                 </div>
+                <button
+                  onClick={() => setReadingStoryId(story.id)}
+                  className="w-full rounded-xl border border-sky-500/40 bg-sky-950/50 px-3 py-2 text-left text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-900/70"
+                >
+                  Read full chronicle
+                </button>
               </div>
             ))
           ) : (
@@ -106,6 +113,28 @@ export const ChroniclesPanel: React.FC = () => {
             ))
           )}
         </div>
+        {readingStoryId && (() => {
+          const story = world.chronicles.find((entry) => entry.id === readingStoryId);
+          if (!story) return null;
+          return (
+            <div className="absolute inset-4 z-10 flex flex-col overflow-hidden rounded-2xl border border-sky-400/50 bg-slate-950/95 p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-400">Full Chronicle</div>
+                  <h3 className="mt-1 font-fantasy text-xl font-bold text-sky-200">{story.title}</h3>
+                  <div className="mt-1 text-[10px] text-slate-400">Woven by {story.author} • {story.timestamp}</div>
+                </div>
+                <button onClick={() => setReadingStoryId(null)} className="rounded-xl bg-slate-800 p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white" title="Close full chronicle">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto py-5 text-sm leading-7 text-slate-200">
+                {(story.fullContent || story.content).split(/\n\s*\n/).map((paragraph, index) => <p key={`${story.id}_paragraph_${index}`} className="mb-4">{paragraph}</p>)}
+              </div>
+              <div className="border-t border-slate-800 pt-3 text-xs text-amber-300">World effect: {story.impactSummary}</div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

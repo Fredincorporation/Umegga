@@ -4,9 +4,10 @@ import { createGameConfig } from '../game/config';
 
 interface GameCanvasProps {
   onReady: () => void;
+  onLoadingProgress: (value: number) => void;
 }
 
-export const GameCanvas: React.FC<GameCanvasProps> = ({ onReady }) => {
+export const GameCanvas: React.FC<GameCanvasProps> = ({ onReady, onLoadingProgress }) => {
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
 
@@ -15,7 +16,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ onReady }) => {
 
     // Prevent double-initialization in React StrictMode
     if (!gameInstanceRef.current) {
-      const config = createGameConfig(gameContainerRef.current, onReady);
+      const config = createGameConfig(gameContainerRef.current, onReady, onLoadingProgress);
       gameInstanceRef.current = new Phaser.Game(config);
       (window as any).gameInstance = gameInstanceRef.current;
     }

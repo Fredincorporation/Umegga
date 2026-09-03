@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const AgentInspector: React.FC = () => {
-  const { selectedAgentId, setSelectedAgentId, agents, addAgentThought, addAgentMemory, addMessage } =
+  const { selectedAgentId, setSelectedAgentId, agents, addAgentThought, addAgentMemory, sendMessageToAgent, engageAgent } =
     useGameStore();
 
   const [inputThought, setInputThought] = useState('');
@@ -36,23 +36,8 @@ export const AgentInspector: React.FC = () => {
   };
 
   const handleConverse = () => {
-    const dialogues = [
-      `"The harmony between our laws and reality is delicate, traveler."`,
-      `"I have walked the perimeter of the Nexus. The mana resonance is peaking."`,
-      `"Should you weave a new chronicle today, grant us prosperous harvests."`,
-      `"Every word spoken in Umega echoes into the celestial firmament."`,
-    ];
-    const dialogue = dialogues[Math.floor(Math.random() * dialogues.length)];
-
-    addAgentThought(agent.id, dialogue);
-    addAgentMemory(agent.id, `Spoke with player: ${dialogue}`, 6);
-    addMessage({
-      sender: agent.name,
-      role: agent.role,
-      avatarId: agent.characterId,
-      text: dialogue,
-      type: 'agent',
-    });
+    engageAgent(agent.id);
+    void sendMessageToAgent(agent.id, 'What is on your mind right now?');
   };
 
   return (
@@ -118,6 +103,25 @@ export const AgentInspector: React.FC = () => {
           </div>
           <p className="text-sky-100 font-medium">"{agent.currentThought || 'Reflecting in silence...'}"</p>
         </div>
+
+        <div className="bg-amber-950/20 border border-amber-500/25 rounded-2xl p-3">
+          <div className="text-[10px] text-amber-300 font-semibold uppercase tracking-wider mb-2">Evolving Personality</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-300">
+            {Object.entries(agent.personality?.traits || {}).slice(0, 6).map(([trait, value]) => (
+              <div key={trait} className="flex items-center justify-between gap-2"><span className="capitalize">{trait}</span><span className="font-mono text-amber-200">{Math.round(Number(value) * 100)}%</span></div>
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] text-slate-400">Growth focus: <span className="text-slate-200">{agent.personality?.growthFocus || 'Learning through experience'}</span></div>
+        </div>
+
+        {(agent.goals || []).length > 0 && (
+          <div className="bg-emerald-950/20 border border-emerald-500/25 rounded-2xl p-3">
+            <div className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider mb-2">Current Goals</div>
+            {(agent.goals || []).filter((goal) => goal.status === 'active').slice(0, 3).map((goal) => (
+              <div key={goal.id} className="text-[11px] text-slate-300 mb-1"><span className="text-emerald-200">{goal.type}:</span> {goal.title}</div>
+            ))}
+          </div>
+        )}
 
         {/* Memory Ledger */}
         <div>

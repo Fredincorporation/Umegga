@@ -3,11 +3,13 @@ import { useGameStore } from '../store/useGameStore';
 import { MessageSquare, Send, ChevronUp, ChevronDown } from 'lucide-react';
 
 export const ChatBox: React.FC = () => {
-  const { messages, addMessage, player } = useGameStore();
+  const { messages, addMessage, sendMessageToAgent, player, selectedAgentId, nearbyAgent } = useGameStore();
   const [inputValue, setInputValue] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
   const [filter, setFilter] = useState<'all' | 'agents' | 'chronicles' | 'mcp'>('all');
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -15,16 +17,27 @@ export const ChatBox: React.FC = () => {
     }
   }, [messages, collapsed]);
 
+  useEffect(() => {
+    if (selectedAgentId && !collapsed) inputRef.current?.focus();
+  }, [selectedAgentId, collapsed]);
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
-    addMessage({
-      sender: player.name,
-      avatarId: player.characterId,
-      text: inputValue.trim(),
-      type: 'chat',
-    });
+    const message = inputValue.trim();
+    const recipientId = selectedAgentId || nearbyAgent?.id;
+    if (recipientId) {
+      setIsReplying(true);
+      void sendMessageToAgent(recipientId, message).finally(() => setIsReplying(false));
+    } else {
+      addMessage({
+        sender: player.name,
+        avatarId: player.characterId,
+        text: message,
+        type: 'chat',
+      });
+    }
 
     setInputValue('');
   };
@@ -149,14 +162,16 @@ export const ChatBox: React.FC = () => {
           {/* Chat Input */}
           <form onSubmit={handleSendMessage} className="p-2 border-t border-slate-800 flex gap-2 bg-slate-950/50">
             <input
+              ref={inputRef}
               type="text"
-              placeholder="Speak to the sanctuary..."
+              placeholder={selectedAgentId || nearbyAgent ? 'Speak to this agent...' : 'Speak to the sanctuary...'}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               className="flex-1 bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
             />
             <button
               type="submit"
+              disabled={isReplying}
               className="p-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition-colors cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />

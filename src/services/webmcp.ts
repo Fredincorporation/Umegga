@@ -4,7 +4,7 @@
  */
 
 import { useGameStore } from '../store/useGameStore';
-import { CharacterId, WeatherType, SceneKey } from '../types/game';
+import { CharacterId, WeatherType, SceneKey, BuiltStructure, AgentState, AgentGoal } from '../types/game';
 
 export interface WebMCPContext {
   tools: Map<string, any>;
@@ -160,8 +160,57 @@ export function initWebMCP() {
           position: { x: Math.round(a.x), y: Math.round(a.y) },
           status: a.status,
           currentThought: a.currentThought,
+          goals: a.goals || [],
+          relationships: a.relationships || [],
+          memoryCount: a.memory.length,
         })),
       };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'get_agent_state',
+    description: 'Returns an agent with its persistent memories, active goals, and relationships.',
+    parameters: {
+      type: 'object',
+      properties: { agentId: { type: 'string', description: 'Agent ID' } },
+      required: ['agentId'],
+    },
+    execute: async (args: { agentId: string }) => {
+      const agent = useGameStore.getState().agents.find((item) => item.id === args.agentId);
+      if (!agent) throw new Error(`Agent with ID "${args.agentId}" not found.`);
+      return { success: true, agent };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'set_agent_goal',
+    description: 'Assigns a durable goal to an agent so autonomous behavior can pursue it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'Agent ID' },
+        title: { type: 'string', description: 'Goal title' },
+        goalType: { type: 'string', description: 'Goal type' },
+        description: { type: 'string', description: 'Goal details' },
+        priority: { type: 'number', description: 'Priority from 1 to 10' },
+        targetAgentId: { type: 'string', description: 'Optional agent to approach' },
+      },
+      required: ['agentId', 'title', 'description'],
+    },
+    execute: async (args: { agentId: string; title: string; description: string; goalType?: string; priority?: number; targetAgentId?: string }) => {
+      const state = useGameStore.getState();
+      if (!state.agents.some((agent) => agent.id === args.agentId)) throw new Error(`Agent with ID "${args.agentId}" not found.`);
+      if (args.targetAgentId && !state.agents.some((agent) => agent.id === args.targetAgentId)) throw new Error('Target agent does not exist.');
+      state.setAgentGoal(args.agentId, {
+        title: args.title,
+        type: (args.goalType || 'gather_knowledge') as AgentGoal['type'],
+        description: args.description,
+        priority: Math.max(1, Math.min(10, args.priority ?? 5)),
+        status: 'active',
+        targetAgentId: args.targetAgentId,
+      });
+      return { success: true, agentId: args.agentId, goal: args.title };
     },
   });
 
@@ -230,6 +279,157 @@ export function initWebMCP() {
       useGameStore.getState().updateAgentPosition(args.agentId, args.x, args.y, 'walk', true);
       useGameStore.getState().addAgentThought(args.agentId, `Travelling to coordinate (${args.x}, ${args.y}).`);
       return { success: true, agentId: args.agentId, target: { x: args.x, y: args.y } };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'move',
+    description: 'Moves an agent to target coordinates and records the command.',
+    parameters: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'ID of the agent to move' },
+        x: { type: 'number', description: 'Target X coordinate' },
+        y: { type: 'number', description: 'Target Y coordinate' },
+      },
+      required: ['agentId', 'x', 'y'],
+    },
+    execute: async (args: { agentId: string; x: number; y: number }) => {
+      const state = useGameStore.getState();
+      if (!state.agents.some((agent) => agent.id === args.agentId)) throw new Error(`Agent with ID "${args.agentId}" not found.`);
+      state.updateAgentPosition(args.agentId, args.x, args.y, 'walk', true);
+      state.addAgentThought(args.agentId, `Moving toward (${args.x}, ${args.y}).`);
+      return { success: true, agentId: args.agentId, target: { x: args.x, y: args.y } };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'build',
+    description: 'Places a persistent structure in the world for 25 Mana.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Structure name' },
+        type: { type: 'string', description: 'Structure type' },
+        scene: { type: 'string', description: 'Scene where it is built' },
+        x: { type: 'number', description: 'World X coordinate' },
+        y: { type: 'number', description: 'World Y coordinate' },
+      },
+      required: ['name', 'type', 'scene', 'x', 'y'],
+    },
+    execute: async (args: { name: string; type: string; scene: SceneKey; x: number; y: number }) => {
+      const structure: BuiltStructure = {
+        id: `structure_${Date.now()}`,
+        name: args.name,
+        type: args.type,
+        scene: args.scene,
+        x: Math.max(0, Math.min(1200, args.x)),
+        y: Math.max(0, Math.min(1200, args.y)),
+        placedBy: useGameStore.getState().player.name,
+        createdAt: new Date().toISOString(),
+      };
+      if (!useGameStore.getState().addStructure(structure)) throw new Error('Insufficient Mana to build this structure.');
+      return { success: true, structure };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'communicate',
+    description: 'Sends a message between two agents and records it in both memories.',
+    parameters: {
+      type: 'object',
+      properties: {
+        fromAgentId: { type: 'string', description: 'Sending agent ID' },
+        toAgentId: { type: 'string', description: 'Receiving agent ID' },
+        message: { type: 'string', description: 'Message to send' },
+      },
+      required: ['fromAgentId', 'toAgentId', 'message'],
+    },
+    execute: async (args: { fromAgentId: string; toAgentId: string; message: string }) => {
+      const state = useGameStore.getState();
+      if (!state.agents.some((agent) => agent.id === args.fromAgentId) || !state.agents.some((agent) => agent.id === args.toAgentId)) {
+        throw new Error('Both communicating agents must exist.');
+      }
+      state.communicateWithAgent(args.fromAgentId, args.toAgentId, args.message);
+      return { success: true, message: args.message };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'form_alliance',
+    description: 'Creates a trusted relationship between two agents.',
+    parameters: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'First agent ID' },
+        allyId: { type: 'string', description: 'Second agent ID' },
+      },
+      required: ['agentId', 'allyId'],
+    },
+    execute: async (args: { agentId: string; allyId: string }) => {
+      const state = useGameStore.getState();
+      const first = state.agents.find((agent) => agent.id === args.agentId);
+      const second = state.agents.find((agent) => agent.id === args.allyId);
+      if (!first || !second || first.id === second.id) throw new Error('Two different existing agents are required.');
+      if (!state.formAlliance(first.id, second.id)) throw new Error('Alliance could not be formed.');
+      return { success: true, alliance: [first.id, second.id] };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'spawn_agent_with_role',
+    description: 'Spawns an agent with a named role, initial goal, and durable memory.',
+    parameters: {
+      type: 'object',
+      properties: {
+        characterId: { type: 'string', description: 'Character sprite template' },
+        name: { type: 'string', description: 'Agent name' },
+        role: { type: 'string', description: 'Agent role' },
+        goal: { type: 'string', description: 'Initial goal' },
+      },
+      required: ['characterId', 'name', 'role', 'goal'],
+    },
+    execute: async (args: { characterId: CharacterId; name: string; role: string; goal: string }) => {
+      const id = `agent_${Date.now()}`;
+      const agent: AgentState = {
+        id,
+        characterId: args.characterId,
+        name: args.name,
+        role: args.role,
+        currentScene: 'SanctuaryScene',
+        x: 600,
+        y: 640,
+        currentAnim: 'idle',
+        isMoving: false,
+        status: 'Pondering reality',
+        currentThought: `I pursue this purpose: ${args.goal}`,
+        affinityWithPlayer: 0,
+        manaAffinity: 'Aetheric Potential',
+        memory: [{ id: `mem_${Date.now()}`, timestamp: new Date().toISOString(), event: 'Spawned into Umega.', importance: 8 }],
+        goals: [{ id: `goal_${Date.now()}`, type: 'gather_knowledge', title: args.goal, description: args.goal, priority: 8, status: 'active', updatedAt: new Date().toISOString() }],
+        relationships: [],
+      };
+      useGameStore.getState().spawnAgent(agent);
+      return { success: true, agent };
+    },
+  });
+
+  modelContext.registerTool({
+    name: 'simulate_outcome',
+    description: 'Runs a lightweight deterministic probability simulation for a proposed action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: 'Action to simulate' },
+        risk: { type: 'number', description: 'Risk from 0 to 1' },
+      },
+      required: ['action'],
+    },
+    execute: async (args: { action: string; risk?: number }) => {
+      const risk = Math.max(0, Math.min(1, args.risk ?? 0.35));
+      const successChance = 1 - risk;
+      const roll = Math.random();
+      return { success: true, action: args.action, outcome: roll < successChance ? 'favorable' : 'unfavorable', successChance, roll };
     },
   });
 
@@ -347,6 +547,25 @@ export function initWebMCP() {
       useGameStore.getState().moveAgentToScene(args.agentId, args.scene, args.x, args.y);
       useGameStore.getState().addAgentThought(args.agentId, `I have traveled to ${args.scene}.`);
       return { success: true, agentId: args.agentId, destinationScene: args.scene };
+    },
+  });
+
+  // 10. get_quests
+  modelContext.registerTool({
+    name: 'get_quests',
+    description: 'Retrieves all mythic quests and their current progress status.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      const quests = useGameStore.getState().quests;
+      return {
+        success: true,
+        total: quests.length,
+        completed: quests.filter((q) => q.completed).length,
+        quests,
+      };
     },
   });
 

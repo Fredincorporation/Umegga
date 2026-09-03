@@ -20,6 +20,9 @@ export interface BuildingDef {
   y: number;
   texture: string;
   scale?: number;
+  /** Override the max on-screen size used to fit the sprite (source textures vary in aspect). */
+  fitWidth?: number;
+  fitHeight?: number;
   solidWidth?: number;
   solidHeight?: number;
   name?: string;
@@ -58,6 +61,8 @@ export abstract class BaseScene extends Phaser.Scene {
   private weatherOverlay!: Phaser.GameObjects.Rectangle;
   private particleEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
   private unsubscribeStore?: () => void;
+  private renderedStructureIds = new Set<string>();
+  private placedProps?: PropDef[];
 
   private readonly sceneTheme: Record<SceneKey, { tint: number; particleTint: number[] }> = {
     SanctuaryScene: { tint: 0x38bdf8, particleTint: [0x7dd3fc, 0x38bdf8, 0xe0f2fe] },
@@ -67,16 +72,6 @@ export abstract class BaseScene extends Phaser.Scene {
     BardsAmphitheatreScene: { tint: 0xfacc15, particleTint: [0xfef08a, 0xfacc15, 0xfffbeb] },
     FrayingMarchScene: { tint: 0x94a3b8, particleTint: [0xcbd5e1, 0x94a3b8, 0x64748b] },
     OuterWastesScene: { tint: 0x78716c, particleTint: [0xd6d3d1, 0xa8a29e, 0x57534e] },
-  };
-
-  private readonly scenePropOwnership: Record<SceneKey, Set<string>> = {
-    SanctuaryScene: new Set(['prop_story_stone', 'prop_law_tablet', 'prop_story_lantern', 'prop_simple_bench', 'prop_pathway_marker', 'prop_ground_node', 'prop_banner']),
-    OracleBasinScene: new Set(['prop_memory_crystal', 'prop_communication_orb', 'prop_story_lantern', 'prop_story_stone', 'prop_pathway_marker']),
-    BotanistGroveScene: new Set(['prop_ground_node', 'prop_story_stone', 'prop_simple_bench', 'prop_story_lantern', 'prop_memory_crystal']),
-    GrandForgeScene: new Set(['prop_builder_modular', 'prop_ground_node', 'prop_pathway_marker', 'prop_simple_bench', 'prop_story_lantern']),
-    BardsAmphitheatreScene: new Set(['prop_banner', 'prop_story_lantern', 'prop_simple_bench', 'prop_story_stone', 'prop_communication_orb']),
-    FrayingMarchScene: new Set(['prop_pathway_marker', 'prop_story_stone', 'prop_banner', 'prop_builder_modular', 'prop_ground_node', 'prop_story_lantern']),
-    OuterWastesScene: new Set(['prop_pathway_marker', 'prop_story_stone']),
   };
 
   constructor(sceneKey: SceneKey) {
@@ -166,7 +161,7 @@ export abstract class BaseScene extends Phaser.Scene {
     const candidates = [desired, { x: desired.x + 64, y: desired.y }, { x: desired.x - 64, y: desired.y }, this.getDefaultSpawn()];
     return candidates.find((candidate) => {
       const nearBuilding = this.getBuildings().some((building) => Phaser.Math.Distance.Between(candidate.x, candidate.y, building.x, building.y) < 100);
-      const nearProp = this.getProps().some((prop) => prop.isSolid && Phaser.Math.Distance.Between(candidate.x, candidate.y, prop.x, prop.y) < 52);
+      const nearProp = this.getPlacedProps().some((prop) => Phaser.Math.Distance.Between(candidate.x, candidate.y, prop.x, prop.y) < 52);
       const nearPortal = this.portals.some((portal) => Phaser.Math.Distance.Between(candidate.x, candidate.y, portal.x, portal.y) < 58);
       return !nearBuilding && !nearProp && !nearPortal;
     }) || { x: 600, y: 640 };
@@ -186,15 +181,19 @@ export abstract class BaseScene extends Phaser.Scene {
     buildings.forEach((b) => {
       const sprite = this.add.image(b.x, b.y, b.texture);
       const buildingScale = Phaser.Math.Clamp((b.scale || 0.75) * (0.94 + (b.y / this.mapHeight) * 0.12), 0.65, 0.9);
-      this.fitToWorldBounds(sprite, 280 * (buildingScale / 0.75), 260 * (buildingScale / 0.75));
+      this.fitToWorldBounds(
+        sprite,
+        b.fitWidth ?? 280 * (buildingScale / 0.75),
+        b.fitHeight ?? 260 * (buildingScale / 0.75),
+      );
       sprite.setOrigin(0.5, 0.85);
       sprite.setDepth(1000 + b.y);
 
       // Add static collider footprint
-      const solidW = b.solidWidth || Math.max(32, sprite.displayWidth * 0.75);
-      const solidH = b.solidHeight || Math.max(24, sprite.displayHeight * 0.3);
+      const solidW = b.solidWidth || Math.max(32, sprite.displayWidth);
+      const solidH = b.solidHeight || Math.max(24, sprite.displayHeight + 36);
       const colliderX = b.x;
-      const colliderY = b.y - solidH * 0.4;
+      const colliderY = b.y - sprite.displayHeight * 0.5 + 18;
 
       const solidBody = this.add.rectangle(colliderX, colliderY, solidW, solidH, 0x000000, 0);
       this.physics.world.enable(solidBody, Phaser.Physics.Arcade.STATIC_BODY);
@@ -213,7 +212,7 @@ export abstract class BaseScene extends Phaser.Scene {
       }
     });
 
-    const props = this.getProps().filter((prop) => this.scenePropOwnership[this.sceneKey].has(prop.texture));
+    const props = this.getPlacedProps();
     props.forEach((p) => {
       const propSprite = this.add.image(p.x, p.y, p.texture);
       const propScale = Phaser.Math.Clamp((p.scale || 0.5) * (0.94 + (p.y / this.mapHeight) * 0.12), 0.4, 0.7);
@@ -230,14 +229,47 @@ export abstract class BaseScene extends Phaser.Scene {
         this.tweens.add({ targets: propSprite, y: p.y - 5, duration: 1800 + (p.x % 300), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       }
 
-      if (p.isSolid) {
-        const solidW = Math.max(20, propSprite.displayWidth * 0.65);
-        const solidH = Math.max(16, propSprite.displayHeight * 0.35);
-        const solidBody = this.add.rectangle(p.x, p.y - solidH * 0.3, solidW, solidH, 0x000000, 0);
-        this.physics.world.enable(solidBody, Phaser.Physics.Arcade.STATIC_BODY);
-        this.solidGroup.add(solidBody);
-      }
+      // All props are solid blocking static bodies at their base
+      const solidW = Math.max(22, propSprite.displayWidth);
+      const solidH = Math.max(18, propSprite.displayHeight);
+      const solidBody = this.add.rectangle(p.x, p.y - solidH * 0.5, solidW, solidH, 0x000000, 0);
+      this.physics.world.enable(solidBody, Phaser.Physics.Arcade.STATIC_BODY);
+      this.solidGroup.add(solidBody);
     });
+  }
+
+  private getPlacedProps(): PropDef[] {
+    if (this.placedProps) return this.placedProps;
+    const fixedProps = this.getProps().filter((prop, index, props) => props.findIndex((candidate) => candidate.texture === prop.texture) === index);
+    const randomPool = [
+      'prop_tree_willow',
+      'prop_rune_stone',
+      'prop_street_lamp',
+      'prop_tree_crystal',
+    ];
+    const occupied = [
+      ...fixedProps.map((prop) => ({ x: prop.x, y: prop.y })),
+      ...this.getBuildings().map((building) => ({ x: building.x, y: building.y })),
+      ...this.getPortals().map((portal) => ({ x: portal.x, y: portal.y })),
+    ];
+    const randomProps: PropDef[] = [];
+    const availableTextures = randomPool
+      .filter((texture) => !fixedProps.some((prop) => prop.texture === texture))
+      .sort(() => Math.random() - 0.5);
+    for (const texture of availableTextures) {
+      let x = 120 + Math.random() * 960;
+      let y = 140 + Math.random() * 900;
+      let attempts = 0;
+      while (attempts < 20 && occupied.some((point) => Phaser.Math.Distance.Between(x, y, point.x, point.y) < 110)) {
+        x = 120 + Math.random() * 960;
+        y = 140 + Math.random() * 900;
+        attempts += 1;
+      }
+      occupied.push({ x, y });
+      randomProps.push({ x, y, texture, isSolid: true });
+    }
+    this.placedProps = [...fixedProps, ...randomProps];
+    return this.placedProps;
   }
 
   protected addDistrictBackground(texture: string) {
@@ -336,6 +368,27 @@ export abstract class BaseScene extends Phaser.Scene {
         });
       }
     });
+
+    const builtStructures = (useGameStore.getState().world.structures || [])
+      .filter((structure) => structure.scene === this.sceneKey);
+    builtStructures.forEach((structure) => {
+      const textureKey = `bld_${structure.type}`;
+      const texture = this.textures.exists(textureKey) ? textureKey : 'prop_builder_modular';
+      const structureSprite = this.add.image(structure.x, structure.y, texture);
+      this.fitToWorldBounds(structureSprite, 180, 180);
+      structureSprite.setOrigin(0.5, 0.85);
+      structureSprite.setDepth(1000 + structure.y);
+      const structureBody = this.add.rectangle(structure.x, structure.y - 20, 90, 36, 0x000000, 0);
+      this.physics.world.enable(structureBody, Phaser.Physics.Arcade.STATIC_BODY);
+      this.solidGroup.add(structureBody);
+      this.add.text(structure.x, structure.y - structureSprite.displayHeight - 8, structure.name, {
+        fontSize: '10px',
+        fontFamily: 'Cinzel, Georgia, serif',
+        color: '#f8fafc',
+        backgroundColor: '#0f172acc',
+        padding: { x: 4, y: 2 },
+      }).setOrigin(0.5).setDepth(3000 + structure.y);
+    });
   }
 
   protected spawnSceneAgents() {
@@ -348,6 +401,26 @@ export abstract class BaseScene extends Phaser.Scene {
       const agentEntity = new AgentEntity(this, agentData);
       this.agents.set(agentData.id, agentEntity);
       this.agentsGroup.add(agentEntity);
+    });
+    this.renderBuiltStructures(allAgents.length === 0);
+  }
+
+  private renderBuiltStructures(_initial = false) {
+    const structures = (useGameStore.getState().world.structures || []).filter((structure) => structure.scene === this.sceneKey);
+    structures.forEach((structure) => {
+      if (this.renderedStructureIds.has(structure.id)) return;
+      this.renderedStructureIds.add(structure.id);
+      const textureKey = `bld_${structure.type}`;
+      const texture = this.textures.exists(textureKey) ? textureKey : 'prop_builder_modular';
+      const sprite = this.add.image(structure.x, structure.y, texture);
+      this.fitToWorldBounds(sprite, 180, 180);
+      sprite.setOrigin(0.5, 0.85).setDepth(1000 + structure.y);
+      const body = this.add.rectangle(structure.x, structure.y - 20, 90, 36, 0x000000, 0);
+      this.physics.world.enable(body, Phaser.Physics.Arcade.STATIC_BODY);
+      this.solidGroup.add(body);
+      this.add.text(structure.x, structure.y - sprite.displayHeight - 8, structure.name, { fontSize: '10px', fontFamily: 'Cinzel, Georgia, serif', color: '#f8fafc', backgroundColor: '#0f172acc', padding: { x: 4, y: 2 } }).setOrigin(0.5).setDepth(3000 + structure.y);
+      this.cameras.main.flash(180, 251, 191, 36);
+      this.particleEmitter?.explode(24, structure.x, structure.y - 20);
     });
   }
 
@@ -370,6 +443,8 @@ export abstract class BaseScene extends Phaser.Scene {
         const newAgent = new AgentEntity(this, agentData);
         this.agents.set(agentData.id, newAgent);
         this.agentsGroup.add(newAgent);
+      } else {
+        this.agents.get(agentData.id)?.syncAgentData(agentData);
       }
     });
   }
@@ -477,6 +552,7 @@ export abstract class BaseScene extends Phaser.Scene {
 
       // 3. Reconcile agents entering, leaving, or becoming the player.
       this.syncSceneAgents(state);
+      this.renderBuiltStructures();
 
       // 4. Visual resonance pulse on chronicle enactment
       if (state.world.chronicles.length > prevState.world.chronicles.length) {
@@ -519,6 +595,28 @@ export abstract class BaseScene extends Phaser.Scene {
   update(time: number, delta: number) {
     if (this.player) {
       this.player.update(time, delta);
+
+      // Proximity check for closest agent to trigger Ubisoft-style prompt
+      let closestAgent: AgentEntity | null = null;
+      let minDistance = 95;
+
+      this.agents.forEach((agent) => {
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, agent.x, agent.y);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestAgent = agent;
+        }
+      });
+
+      const currentNearby = useGameStore.getState().nearbyAgent;
+      if (closestAgent) {
+        const agentData = (closestAgent as AgentEntity).agentData;
+        if (currentNearby?.id !== agentData.id) {
+          useGameStore.getState().setNearbyAgent(agentData);
+        }
+      } else if (currentNearby) {
+        useGameStore.getState().setNearbyAgent(null);
+      }
     }
 
     this.agents.forEach((agent) => {

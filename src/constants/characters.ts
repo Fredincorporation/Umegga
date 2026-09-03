@@ -1,4 +1,38 @@
-import { CharacterId, CharacterMeta, AgentState } from '../types/game';
+import { CharacterId, CharacterMeta, AgentPersonality, AgentState } from '../types/game';
+
+const personality = (
+  traits: AgentPersonality['traits'],
+  speakingStyle: string,
+  values: string[],
+  quirks: string[],
+  playerAttitude: string,
+  emotionalTendency: string,
+  eventReactions: AgentPersonality['eventReactions'],
+  growthFocus: string,
+): AgentPersonality => ({
+  traits,
+  speakingStyle,
+  values,
+  quirks,
+  playerAttitude,
+  eventReactions,
+  emotionalTendency,
+  trustThreshold: 55,
+  helpWillingness: 0.35,
+  growthFocus,
+});
+
+export const PERSONALITY_PROFILES: Record<CharacterId, AgentPersonality> = {
+  aelira: personality({ idealism: .9, order: .3, openness: .7, caution: .35, pride: .55, empathy: .75, curiosity: .8, ambition: .65 }, 'Poetic, metaphorical, and flowing like a story.', ['meaning', 'beauty', 'narrative truth'], ['Relates events to old tales.', 'Names new phenomena dramatically.'], 'Warm, but disappointed by purely transactional choices.', 'Dreamy and hopeful, with flashes of doubt.', { stories: 'Becomes radiant around powerful stories.', laws: 'Resists rigid laws that kill wonder.', alliances: 'Seeks bonds that preserve beauty.', conflict: 'Turns conflict into a cautionary parable.' }, 'Temper idealism with practical action'),
+  kaelen: personality({ idealism: .25, order: .9, openness: .35, caution: .75, pride: .7, empathy: .45, curiosity: .5, ambition: .7 }, 'Formal, precise, and brief.', ['order', 'fairness', 'stability'], ['Corrects vague language.', 'Measures claims against precedent.'], 'Respectful when the player follows through; cold toward chaos.', 'Controlled and stern, softening through earned trust.', { stories: 'Supports stories with clear civic value.', laws: 'Strongly supports precise, enforceable laws.', alliances: 'Trusts proven partners.', conflict: 'Demands evidence before judgment.' }, 'Practice leniency without losing standards'),
+  torren: personality({ idealism: .35, order: .65, openness: .45, caution: .5, pride: .8, empathy: .45, curiosity: .45, ambition: .75 }, 'Direct, practical, and dryly humorous.', ['creation', 'usefulness', 'strength'], ['Tests whether things hold weight.', 'Taps tools while thinking.'], 'Respects action more than eloquence.', 'Impatient, proud, and energized by useful work.', { stories: 'Likes stories that inspire making.', laws: 'Accepts laws that improve the work.', alliances: 'Stands by reliable builders.', conflict: 'Challenges empty talk directly.' }, 'Show pride without becoming arrogant'),
+  sylis: personality({ idealism: .55, order: .7, openness: .6, caution: .65, pride: .3, empathy: .6, curiosity: .95, ambition: .4 }, 'Measured, detailed, and lightly academic.', ['knowledge', 'accuracy', 'memory'], ['Records nearly everything.', 'Asks for sources and dates.'], 'Opens up when the player shares useful information.', 'Quietly curious and reflective.', { stories: 'Archives stories as historical evidence.', laws: 'Studies laws for unintended patterns.', alliances: 'Values documented trust.', conflict: 'Catalogues facts before taking sides.' }, 'Share knowledge instead of only recording it'),
+  veyra: personality({ idealism: .5, order: .2, openness: .75, caution: .4, pride: .6, empathy: .45, curiosity: .9, ambition: .7 }, 'Quick, informal, sharp, and teasing.', ['freedom', 'discovery', 'movement'], ['Hates staying still.', 'Collects improbable maps.'], 'Friendly, but easily bored by routine.', 'Restless and bold, masking vulnerability with wit.', { stories: 'Chases stories that open new paths.', laws: 'Dislikes restrictions and loopholes.', alliances: 'Enjoys unconventional allies.', conflict: 'Moves first and explains later.' }, 'Stay present long enough to finish a commitment'),
+  orthas: personality({ idealism: .45, order: .75, openness: .45, caution: .9, pride: .5, empathy: .8, curiosity: .35, ambition: .45 }, 'Calm, grounded, and reassuring.', ['safety', 'duty', 'protection'], ['Scans every horizon.', 'Checks doors twice.'], 'Protective, becoming attached when the player helps others.', 'Steady and vigilant, rarely panicked.', { stories: 'Supports protective legends.', laws: 'Favors defensive, fair laws.', alliances: 'Builds durable mutual protection.', conflict: 'Places civilians before victory.' }, 'Learn to trust others with responsibility'),
+  lira: personality({ idealism: .7, order: .4, openness: .9, caution: .3, pride: .35, empathy: .95, curiosity: .7, ambition: .35 }, 'Soft, friendly, and conversational.', ['community', 'connection', 'harmony'], ['Remembers personal details.', 'Hums while listening.'], 'Very approachable and encouraging.', 'Hopeful and emotionally attuned.', { stories: 'Celebrates stories that bring people together.', laws: 'Prefers compassionate laws.', alliances: 'Mends strained relationships.', conflict: 'Seeks a shared feeling first.' }, 'Resolve tension without carrying everyone\'s burden'),
+  elder_maelon: personality({ idealism: .6, order: .6, openness: .55, caution: .8, pride: .35, empathy: .7, curiosity: .75, ambition: .25 }, 'Slow, layered, and question-led.', ['understanding', 'balance', 'long-term consequences'], ['Answers with questions.', 'Pauses to watch the weather.'], 'Treats the player as a student.', 'Patient, contemplative, and mysterious.', { stories: 'Weighs their long consequences.', laws: 'Tests laws against future generations.', alliances: 'Encourages balanced partnerships.', conflict: 'Looks for the lesson beneath the wound.' }, 'Give direct counsel when others need it'),
+  vance: personality({ idealism: .4, order: .5, openness: .8, caution: .45, pride: .7, empathy: .5, curiosity: .65, ambition: .9 }, 'Smooth, persuasive, and deal-oriented.', ['exchange', 'influence', 'opportunity'], ['Turns events into negotiations.', 'Keeps mental ledgers.'], 'Friendly when mutual benefit is clear.', 'Charismatic, opportunistic, and pragmatic.', { stories: 'Favors stories that create opportunity.', laws: 'Supports stable markets and fair exchange.', alliances: 'Seeks advantageous coalitions.', conflict: 'Offers terms before threats.' }, 'Value people beyond their immediate utility'),
+};
 
 export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
   aelira: {
@@ -10,6 +44,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 320, y: 320 },
     accentColor: '#38bdf8',
     badgeBg: 'bg-sky-950/80 border-sky-500/50 text-sky-200',
+    baseSpeed: 165,
   },
   torren: {
     id: 'torren',
@@ -20,6 +55,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 580, y: 280 },
     accentColor: '#eab308',
     badgeBg: 'bg-amber-950/80 border-amber-500/50 text-amber-200',
+    baseSpeed: 140,
   },
   kaelen: {
     id: 'kaelen',
@@ -30,6 +66,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 740, y: 460 },
     accentColor: '#f97316',
     badgeBg: 'bg-orange-950/80 border-orange-500/50 text-orange-200',
+    baseSpeed: 150,
   },
   veyra: {
     id: 'veyra',
@@ -40,6 +77,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 180, y: 520 },
     accentColor: '#c084fc',
     badgeBg: 'bg-purple-950/80 border-purple-500/50 text-purple-200',
+    baseSpeed: 215,
   },
   orthas: {
     id: 'orthas',
@@ -50,6 +88,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 440, y: 640 },
     accentColor: '#22d3ee',
     badgeBg: 'bg-cyan-950/80 border-cyan-500/50 text-cyan-200',
+    baseSpeed: 155,
   },
   sylis: {
     id: 'sylis',
@@ -60,6 +99,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 860, y: 320 },
     accentColor: '#4ade80',
     badgeBg: 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200',
+    baseSpeed: 175,
   },
   lira: {
     id: 'lira',
@@ -70,6 +110,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 260, y: 720 },
     accentColor: '#fb7185',
     badgeBg: 'bg-rose-950/80 border-rose-500/50 text-rose-200',
+    baseSpeed: 190,
   },
   elder_maelon: {
     id: 'elder_maelon',
@@ -80,6 +121,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 520, y: 160 },
     accentColor: '#fbbf24',
     badgeBg: 'bg-yellow-950/80 border-yellow-500/50 text-yellow-200',
+    baseSpeed: 120,
   },
   vance: {
     id: 'vance',
@@ -90,6 +132,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     defaultPosition: { x: 680, y: 720 },
     accentColor: '#facc15',
     badgeBg: 'bg-amber-950/80 border-yellow-500/50 text-amber-200',
+    baseSpeed: 145,
   },
 };
 

@@ -8,7 +8,7 @@ import { BardsAmphitheatreScene } from './scenes/BardsAmphitheatreScene';
 import { FrayingMarchScene } from './scenes/FrayingMarchScene';
 import { OuterWastesScene } from './scenes/OuterWastesScene';
 
-export function createGameConfig(container: HTMLElement, onReady: () => void): Phaser.Types.Core.GameConfig {
+export function createGameConfig(container: HTMLElement, onReady: () => void, onLoadingProgress: (value: number) => void): Phaser.Types.Core.GameConfig {
   return {
     type: Phaser.AUTO,
     parent: container,
@@ -24,8 +24,9 @@ export function createGameConfig(container: HTMLElement, onReady: () => void): P
       height: '100%',
     },
     callbacks: {
-      postBoot: (game) => {
+      preBoot: (game) => {
         game.registry.set('onReady', onReady);
+        game.registry.set('onLoadingProgress', onLoadingProgress);
       },
     },
     physics: {

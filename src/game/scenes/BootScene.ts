@@ -83,6 +83,7 @@ export class BootScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, layoutProgress, this);
 
     this.load.on('progress', (value: number) => {
+      this.registry.get('onLoadingProgress')?.(value);
       const viewportWidth = this.scale.gameSize.width;
       const viewportHeight = this.scale.gameSize.height;
       const barWidth = Math.min(520, Math.max(140, viewportWidth - 32));
@@ -96,6 +97,7 @@ export class BootScene extends Phaser.Scene {
     });
 
     this.load.on('complete', () => {
+      this.registry.get('onLoadingProgress')?.(1);
       this.scale.off(Phaser.Scale.Events.RESIZE, fitLoadingArtwork, this);
       this.scale.off(Phaser.Scale.Events.RESIZE, layoutProgress, this);
       loadingArtwork?.destroy();

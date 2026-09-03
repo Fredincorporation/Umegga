@@ -173,7 +173,7 @@ export const StoryProposalModal: React.FC = () => {
           <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-amber-400">
               <Sparkles className="w-4 h-4" />
-              <span>Weaving Reward: +25 Renown & World Mana</span>
+              <span>Weaving Reward: +60 Mana, +25 Renown (Cost: 35 Mana)</span>
             </div>
             <div className="flex items-center gap-2">
               <button

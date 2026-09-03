@@ -100,9 +100,11 @@ export class BardsAmphitheatreScene extends BaseScene {
       {
         x: 250,
         y: 780,
-        texture: 'bld_modular_house_a',
-        name: 'Bard House',
-        scale: 0.72,
+        texture: 'bld_bard_academy',
+        name: 'Bard Academy',
+        scale: 0.82,
+        fitWidth: 200,
+        fitHeight: 185,
       },
       {
         x: 950,

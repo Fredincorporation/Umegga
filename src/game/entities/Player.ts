@@ -19,6 +19,7 @@ export class Player extends Phaser.GameObjects.Container {
     S: Phaser.Input.Keyboard.Key;
     D: Phaser.Input.Keyboard.Key;
   };
+  private interactKey?: Phaser.Input.Keyboard.Key;
 
   private currentAnimType: AnimationType = 'idle';
   private baseSpeed = 165;
@@ -27,6 +28,7 @@ export class Player extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, characterId: CharacterId = 'aelira') {
     super(scene, x, y);
     this.characterId = characterId;
+    this.baseSpeed = SUPPORTED_CHARACTERS[characterId]?.baseSpeed || 165;
 
     // 1. Soft Shadow under the player
     this.shadowEllipse = scene.add.ellipse(0, 16, 26, 12, 0x000000, 0.45);
@@ -61,7 +63,7 @@ export class Player extends Phaser.GameObjects.Container {
     body.setOffset(-11, 4);
     body.setCollideWorldBounds(true);
 
-    // 6. Setup Keyboard Inputs (WASD + Arrows)
+    // 6. Setup Keyboard Inputs (WASD + Arrows + E for Interact)
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
       this.wasdKeys = scene.input.keyboard.addKeys({
@@ -70,6 +72,7 @@ export class Player extends Phaser.GameObjects.Container {
         S: Phaser.Input.Keyboard.KeyCodes.S,
         D: Phaser.Input.Keyboard.KeyCodes.D,
       }) as any;
+      this.interactKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     }
 
     // Play default idle animation
@@ -85,6 +88,7 @@ export class Player extends Phaser.GameObjects.Container {
   public setCharacter(newCharId: CharacterId) {
     if (!this.active || !this.scene.sys.settings.active) return;
     const character = SUPPORTED_CHARACTERS[newCharId];
+    this.baseSpeed = character?.baseSpeed || 165;
     if (this.characterId === newCharId) {
       this.nameText.setText(`You (${character?.name || newCharId})`);
       return;
@@ -109,6 +113,38 @@ export class Player extends Phaser.GameObjects.Container {
   public update(time: number, _delta: number) {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
+
+    // Check interaction key 'E'
+    if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      const state = useGameStore.getState();
+      const nearby = state.nearbyAgent;
+      if (state.engagedAgentId) {
+        const engagedEntity = (this.scene as any).agents?.get(state.engagedAgentId);
+        engagedEntity?.hideThought();
+        if (engagedEntity) {
+          engagedEntity.isEngagedWithPlayer = false;
+          AnimationManager.playAnim(engagedEntity.sprite, engagedEntity.characterId, 'idle');
+        }
+        state.endAgentEngagement();
+      } else if (nearby) {
+        const nearbyEntity = (this.scene as any).agents?.get(nearby.id);
+        if (nearbyEntity) {
+          nearbyEntity.isEngagedWithPlayer = true;
+          nearbyEntity.showThought(nearby.personality?.playerAttitude || 'I am listening, traveler.', 4000);
+          AnimationManager.playAnim(nearbyEntity.sprite, nearbyEntity.characterId, 'talk');
+        }
+        state.interactWithNearbyAgent();
+      }
+    }
+
+    if (useGameStore.getState().engagedAgentId) {
+      body.setVelocity(0, 0);
+      if (this.currentAnimType !== 'idle') {
+        this.currentAnimType = 'idle';
+        AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
+      }
+      return;
+    }
 
     let vx = 0;
     let vy = 0;

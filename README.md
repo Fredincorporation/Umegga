@@ -64,6 +64,13 @@ Exposes tools on `document.modelContext` and `window.umegaMCP`:
 - `set_weather`
 - Includes an interactive in-game **WebMCP Console** to test tool invocations and view live execution streams.
 
+### Persistence Status and Supabase Plan
+- Browser persistence currently stores the complete game snapshot in `localStorage`: player, agents, personalities, memories, relationships, goals, quests, world laws, chronicles, messages, interventions, and God Mode.
+- Supabase currently persists agent rows in `umega_agents` and provides realtime broadcasts. It does not yet persist the complete world snapshot.
+- Before enabling full remote persistence, create a protected `umega_game_state` table with `id text primary key`, `state jsonb not null`, and `updated_at timestamptz not null`. Enable RLS, allow the authenticated session to select/upsert its own row, and add a migration for existing local snapshots.
+- The next persistence step is to load the singleton world row before starting Phaser, merge it with local state using the newest `updated_at`, and debounce snapshot upserts after Zustand changes. Keep realtime broadcasts for low-latency events, but deduplicate them by event id before applying them.
+- For production multiplayer, split the JSON snapshot into `umega_world_events`, `umega_chat_messages`, and `umega_agent_states` with indexes on `created_at` and `session_id`; retain the JSON snapshot only as a recovery checkpoint.
+
 ---
 
 ## Running the Project

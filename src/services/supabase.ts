@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { ChatMessage, StoryEntry, LawEntry } from '../types/game';
+import { AgentState, ChatMessage, StoryEntry, LawEntry } from '../types/game';
 
 // Check for environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -10,6 +10,21 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+export async function loadPersistedAgents(): Promise<AgentState[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('umega_agents').select('state');
+  if (error || !data) return [];
+  return data.map((row: { state: AgentState }) => row.state).filter(Boolean);
+}
+
+export async function savePersistedAgents(agents: AgentState[]): Promise<void> {
+  if (!supabase || agents.length === 0) return;
+  await supabase.from('umega_agents').upsert(
+    agents.map((agent) => ({ id: agent.id, state: agent, updated_at: new Date().toISOString() })),
+    { onConflict: 'id' },
+  );
+}
 
 /**
  * Realtime Event Bridge

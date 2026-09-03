@@ -123,35 +123,35 @@ export class SanctuaryScene extends BaseScene {
     return [
       {
         x: 600,
-        y: 210,
+        y: 600,
         texture: 'bld_story_spire',
         name: 'Grand Story Spire',
         scale: 0.8,
       },
       {
-        x: 220,
-        y: 430,
+        x: 150,
+        y: 260,
         texture: 'bld_council_hall',
         name: 'High Arbiter Council Hall',
         scale: 0.78,
       },
       {
-        x: 1010,
-        y: 430,
+        x: 1050,
+        y: 260,
         texture: 'bld_shrine',
         name: 'Shrine of the First Weaver',
         scale: 0.7,
       },
       {
-        x: 260,
-        y: 900,
+        x: 150,
+        y: 980,
         texture: 'bld_modular_house_a',
         name: 'Weaver Quarters',
         scale: 0.72,
       },
       {
-        x: 940,
-        y: 900,
+        x: 1050,
+        y: 980,
         texture: 'bld_modular_house_b',
         name: 'Scholar Lodge',
         scale: 0.72,
@@ -173,6 +173,8 @@ export class SanctuaryScene extends BaseScene {
       { x: 840, y: 780, texture: 'prop_pathway_marker', isSolid: true },
       { x: 360, y: 300, texture: 'prop_banner' },
       { x: 840, y: 300, texture: 'prop_banner' },
+      { x: 440, y: 820, texture: 'prop_tree_willow', isSolid: true },
+      { x: 760, y: 820, texture: 'prop_tree_crystal', isSolid: true },
     ];
   }
 

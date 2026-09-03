@@ -96,6 +96,15 @@ export class GrandForgeScene extends BaseScene {
         scale: 0.86,
       },
       {
+        x: 820,
+        y: 270,
+        texture: 'bld_magma_furnace',
+        name: 'Magma Furnace',
+        scale: 0.82,
+        fitWidth: 150,
+        fitHeight: 150,
+      },
+      {
         x: 250,
         y: 760,
         texture: 'bld_modular_house_b',
@@ -108,6 +117,7 @@ export class GrandForgeScene extends BaseScene {
   getProps(): PropDef[] {
     return [
       { x: 430, y: 560, texture: 'prop_builder_modular', isSolid: true },
+      { x: 600, y: 520, texture: 'prop_forge_anvil', isSolid: true },
       { x: 770, y: 560, texture: 'prop_ground_node', isSolid: true },
       { x: 350, y: 900, texture: 'prop_pathway_marker', isSolid: true },
       { x: 850, y: 900, texture: 'prop_simple_bench', isSolid: true },

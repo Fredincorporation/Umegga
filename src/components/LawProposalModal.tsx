@@ -197,7 +197,7 @@ export const LawProposalModal: React.FC = () => {
           <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-amber-400">
               <Shield className="w-4 h-4" />
-              <span>Ratification: Instant World-Wide Physics Modification</span>
+              <span>Ratification: +45 Mana, +35 Renown (Cost: 25 Mana)</span>
             </div>
             <div className="flex items-center gap-2">
               <button
