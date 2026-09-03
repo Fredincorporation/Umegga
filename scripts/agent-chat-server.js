@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const port = Number(process.env.AGENT_CHAT_PORT || 3001);
+const port = Number(process.env.PORT || process.env.AGENT_CHAT_PORT || 3001);
 const apiUrl = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
 const apiKey = process.env.AI_API_KEY;
 const model = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
