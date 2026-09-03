@@ -325,7 +325,16 @@ export class AgentEntity extends Phaser.GameObjects.Container {
 
         // Role-based target preference
         let targetSpot = charMeta?.defaultPosition || { x: 600, y: 600 };
-        if (trustedAlly && Math.random() < 0.45) {
+        const goalTargetAgent = activeGoal?.targetAgentId ? baseScene.agents.get(activeGoal.targetAgentId) : undefined;
+        if (goalTargetAgent) {
+          targetSpot = { x: goalTargetAgent.x, y: goalTargetAgent.y };
+        } else if (activeGoal?.type === 'travel' && portals.length > 0) {
+          const portal = portals[Math.floor(Math.random() * portals.length)];
+          targetSpot = { x: portal.x, y: portal.y + 30 };
+        } else if ((activeGoal?.type === 'build' || activeGoal?.type === 'gather_knowledge' || activeGoal?.type === 'enforce_law' || activeGoal?.type === 'protect_area') && buildings.length > 0) {
+          const building = buildings[Math.floor(Math.random() * buildings.length)];
+          targetSpot = { x: building.x, y: building.y + 40 };
+        } else if (trustedAlly && Math.random() < 0.45) {
           targetSpot = { x: trustedAlly.x + 36, y: trustedAlly.y + 24 };
         } else if (activeGoal?.targetScene && activeGoal.targetScene !== this.agentData.currentScene) {
           targetSpot = { x: 600, y: 600 };

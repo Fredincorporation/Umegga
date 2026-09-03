@@ -42,7 +42,7 @@ export const HUD: React.FC = () => {
   const currentAreaMana = world.manaByScene[player.currentScene] ?? world.manaLevel;
 
   const realms: { key: SceneKey; name: string; icon: string; themeColor: string }[] = [
-    { key: 'SanctuaryScene', name: 'Umega Sanctuary', icon: '🏛️', themeColor: 'text-sky-300' },
+    { key: 'SanctuaryScene', name: 'Umegga Sanctuary', icon: '🏛️', themeColor: 'text-sky-300' },
     { key: 'OracleBasinScene', name: 'Oracle Basin', icon: '🔮', themeColor: 'text-purple-300' },
     { key: 'BotanistGroveScene', name: 'Botanist Grove', icon: '🌿', themeColor: 'text-emerald-300' },
     { key: 'GrandForgeScene', name: 'Grand Forge', icon: '🔥', themeColor: 'text-orange-300' },
@@ -265,7 +265,7 @@ export const HUD: React.FC = () => {
                             : null;
                           if (selectedAgent?.currentScene && currentActive) {
                             currentActive.scene.start(selectedAgent.currentScene, {
-                              spawnX: selectedAgent.x + 48,
+                              spawnX: selectedAgent.x,
                               spawnY: selectedAgent.y,
                               fromScene: player.currentScene,
                             });

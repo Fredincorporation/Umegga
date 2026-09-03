@@ -23,6 +23,9 @@ export function createGameConfig(container: HTMLElement, onReady: () => void, on
       width: '100%',
       height: '100%',
     },
+    loader: {
+      maxParallelDownloads: 8,
+    },
     callbacks: {
       preBoot: (game) => {
         game.registry.set('onReady', onReady);

@@ -143,7 +143,10 @@ export abstract class BaseScene extends Phaser.Scene {
   protected calculateSpawnPosition(data: SceneInitData): { x: number; y: number } {
     let desired = this.getDefaultSpawn();
     if (data?.spawnX !== undefined && data?.spawnY !== undefined) {
-      desired = { x: data.spawnX, y: data.spawnY };
+      return {
+        x: Phaser.Math.Clamp(data.spawnX, 48, this.mapWidth - 48),
+        y: Phaser.Math.Clamp(data.spawnY, 48, this.mapHeight - 48),
+      };
     } else if (data?.spawnPortalId) {
       const targetPortal = this.portals.find((p) => p.id === data.spawnPortalId);
       if (targetPortal) {
@@ -511,7 +514,7 @@ export abstract class BaseScene extends Phaser.Scene {
 
   private showAreaEntry(fromScene?: SceneKey) {
     const areaNames: Record<SceneKey, string> = {
-      SanctuaryScene: 'Umega Sanctuary',
+      SanctuaryScene: 'Umegga Sanctuary',
       OracleBasinScene: 'Oracle Basin',
       BotanistGroveScene: 'Botanist Grove',
       GrandForgeScene: 'Grand Forge',

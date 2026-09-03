@@ -62,7 +62,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     name: 'Kaelen Forgeheart',
     title: 'Grand Artisan of Star-Iron',
     role: 'Artisan',
-    lore: 'Kaelen hammers reality into tangible tools. His forge never dims, powered by the collective dreams of Umega.',
+    lore: 'Kaelen hammers reality into tangible tools. His forge never dims, powered by the collective dreams of Umegga.',
     defaultPosition: { x: 740, y: 460 },
     accentColor: '#f97316',
     badgeBg: 'bg-orange-950/80 border-orange-500/50 text-orange-200',
@@ -84,7 +84,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     name: 'Orthas Stonecarver',
     title: 'Architect of Living Citadels',
     role: 'Architect',
-    lore: 'Orthas shapes the geometry of Umega with runic blueprints. Under his command, stone roads pave themselves.',
+    lore: 'Orthas shapes the geometry of Umegga with runic blueprints. Under his command, stone roads pave themselves.',
     defaultPosition: { x: 440, y: 640 },
     accentColor: '#22d3ee',
     badgeBg: 'bg-cyan-950/80 border-cyan-500/50 text-cyan-200',
@@ -95,7 +95,7 @@ export const SUPPORTED_CHARACTERS: Record<CharacterId, CharacterMeta> = {
     name: 'Sylis Verdant',
     title: 'Botanist of the World-Root',
     role: 'Botanist',
-    lore: 'Sylis communicates with the flora that breathes life into the city. His presence sparks blossoms in cobblestone cracks.',
+    lore: 'Sylis communicates with the flora that breathes life into the city. Her presence sparks blossoms in cobblestone cracks.',
     defaultPosition: { x: 860, y: 320 },
     accentColor: '#4ade80',
     badgeBg: 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200',
@@ -152,7 +152,7 @@ export const INITIAL_AGENTS: AgentState[] = [
     affinityWithPlayer: 60,
     manaAffinity: 'Ancient Chronomancy',
     memory: [
-      { id: 'm6', timestamp: 'Creation', event: 'Recorded the birth of the Umega Nexus.', importance: 10 },
+      { id: 'm6', timestamp: 'Creation', event: 'Recorded the birth of the Umegga Nexus.', importance: 10 },
     ],
   },
   {
@@ -170,7 +170,7 @@ export const INITIAL_AGENTS: AgentState[] = [
     affinityWithPlayer: 25,
     manaAffinity: 'Order & Balance',
     memory: [
-      { id: 'm1', timestamp: 'Dawn', event: 'Reviewed the Great Charter of Umega.', importance: 8 },
+      { id: 'm1', timestamp: 'Dawn', event: 'Reviewed the Great Charter of Umegga.', importance: 8 },
       { id: 'm2', timestamp: 'Midday', event: 'Noticed a surge of storycraft near the central fountain.', importance: 6 },
     ],
   },
@@ -275,7 +275,7 @@ export const INITIAL_AGENTS: AgentState[] = [
     currentAnim: 'idle',
     isMoving: false,
     status: 'Resting',
-    currentThought: 'Every story written translates into prosperity for Umega.',
+    currentThought: 'Every story written translates into prosperity for Umegga.',
     affinityWithPlayer: 30,
     manaAffinity: 'Aetheric Commerce',
     memory: [

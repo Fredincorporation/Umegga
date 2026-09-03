@@ -24,7 +24,7 @@ export class OuterWastesScene extends BaseScene {
         y: 1080,
         targetScene: 'SanctuaryScene',
         targetPortalId: 'portal_sanc_to_wastes',
-        label: 'To Umega Sanctuary',
+        label: 'To Umegga Sanctuary',
         colorHex: 0x38bdf8,
         gateTexture: 'prop_portal_gate_cyan',
       },

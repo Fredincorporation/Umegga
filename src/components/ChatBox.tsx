@@ -3,7 +3,7 @@ import { useGameStore } from '../store/useGameStore';
 import { MessageSquare, Send, ChevronUp, ChevronDown } from 'lucide-react';
 
 export const ChatBox: React.FC = () => {
-  const { messages, addMessage, sendMessageToAgent, player, selectedAgentId, nearbyAgent } = useGameStore();
+  const { messages, addMessage, sendMessageToAgent, player, selectedAgentId, nearbyAgent, activePanel } = useGameStore();
   const [inputValue, setInputValue] = useState('');
   const [isReplying, setIsReplying] = useState(false);
   const [filter, setFilter] = useState<'all' | 'agents' | 'chronicles' | 'mcp'>('all');
@@ -20,6 +20,8 @@ export const ChatBox: React.FC = () => {
   useEffect(() => {
     if (selectedAgentId && !collapsed) inputRef.current?.focus();
   }, [selectedAgentId, collapsed]);
+
+  if (activePanel === 'agent_inspector' && selectedAgentId) return null;
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,5 @@
 /**
- * Umega - Mythic City-State Types and Interfaces
+ * Umegga - Mythic City-State Types and Interfaces
  */
 
 export type SceneKey =
@@ -90,7 +90,7 @@ export interface AgentMemory {
 
 export interface AgentGoal {
   id: string;
-  type: 'build' | 'communicate' | 'enforce_law' | 'gather_knowledge' | 'protect_area' | 'travel' | 'support_ally';
+  type: 'build' | 'communicate' | 'enforce_law' | 'gather_knowledge' | 'protect_area' | 'travel' | 'support_ally' | 'personality_growth';
   title: string;
   description: string;
   priority: number;
@@ -154,6 +154,7 @@ export interface StoryEntry {
   id: string;
   title: string;
   content: string;
+  summary?: string;
   fullContent?: string;
   author: string;
   timestamp: string;
@@ -208,11 +209,13 @@ export interface ChatMessage {
   id: string;
   sender: string;
   senderId?: string;
+  recipientAgentId?: string;
   role?: string;
   avatarId?: CharacterId;
   text: string;
   timestamp: string;
   type: 'chat' | 'system' | 'story' | 'law' | 'agent' | 'mcp';
+  channel?: 'conversation';
 }
 
 export interface RemotePlayer {

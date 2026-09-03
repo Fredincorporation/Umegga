@@ -12,13 +12,14 @@ import { ProximityPrompt } from './components/ProximityPrompt';
 import { QuestTracker } from './components/QuestTracker';
 import { initWebMCP } from './services/webmcp';
 import { InterventionRequests } from './components/InterventionRequests';
+import { WorldMap } from './components/WorldMap';
 
 export const App: React.FC = () => {
   const [gameReady, setGameReady] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
-    // Initialize WebMCP tools registry on document.modelContext & window.umegaMCP
+    // Initialize WebMCP tools registry on document.modelContext & window.UmeggaMCP
     initWebMCP();
   }, []);
 
@@ -31,12 +32,12 @@ export const App: React.FC = () => {
         <div className="absolute inset-0 z-10 flex items-end justify-center bg-slate-950 p-6 pointer-events-none">
           <img
             src="/loading-screen.png"
-            alt="Loading Umega"
+            alt="Loading Umegga"
             className="absolute inset-0 h-full w-full object-contain"
           />
           <div className="relative mb-4 w-full max-w-lg rounded-xl border border-cyan-300/70 bg-slate-950/90 p-4 text-center shadow-2xl">
             <div className="mb-2 flex items-center justify-between font-fantasy text-sm text-slate-100">
-              <span>Forging Umega Reality Fabric...</span>
+              <span>Forging Umegga Reality Fabric...</span>
               <span className="font-mono text-cyan-200">{Math.floor(loadingProgress * 100)}%</span>
             </div>
             <div className="h-3 overflow-hidden rounded-full border border-cyan-300/60 bg-slate-800">
@@ -63,6 +64,7 @@ export const App: React.FC = () => {
           <WebMCPConsole />
           <ChatBox />
           <VirtualControls />
+          <WorldMap />
         </>
       )}
     </div>

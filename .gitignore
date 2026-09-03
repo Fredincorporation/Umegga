@@ -2,3 +2,13 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# Local database and Supabase CLI state
+supabase/
+
+# Build output
+dist/
+
+# Local logs and temporary files
+*.log
+.temp/

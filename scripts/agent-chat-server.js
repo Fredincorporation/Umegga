@@ -1,14 +1,14 @@
 import http from 'node:http';
 
 const port = Number(process.env.AGENT_CHAT_PORT || 3001);
-const apiUrl = process.env.AI_API_URL || 'https://api.openai.com/v1/chat/completions';
+const apiUrl = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
 const apiKey = process.env.AI_API_KEY;
-const model = process.env.AI_MODEL || 'gpt-4o-mini';
+const model = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
 
 function sendJson(response, status, body) {
   response.writeHead(status, {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': 'http://localhost:3000',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   });
@@ -45,6 +45,11 @@ const server = http.createServer(async (request, response) => {
     const body = await readBody(request);
     const agent = body.agent || {};
     const message = typeof body.message === 'string' ? body.message.trim() : '';
+    const conversation = Array.isArray(body.conversation)
+      ? body.conversation
+        .filter((turn) => turn && (turn.role === 'user' || turn.role === 'assistant') && typeof turn.content === 'string')
+        .slice(-12)
+      : [];
     if (!message) {
       sendJson(response, 400, { error: 'message is required' });
       return;
@@ -63,8 +68,9 @@ const server = http.createServer(async (request, response) => {
         messages: [
           {
             role: 'system',
-            content: `You are ${agent.name || 'an Umega agent'}, a ${agent.role || 'citizen'} in the living fantasy city of Umega. Stay in character. Use this context: goals=${JSON.stringify(agent.goals || [])}; memories=${JSON.stringify(agent.memories || [])}; player affinity=${agent.affinity ?? 0}. Reply concisely and naturally, without mentioning prompts, APIs, or being an AI.`,
+            content: `You are ${agent.name || 'an Umegga agent'}, a ${agent.role || 'citizen'} in the living fantasy city of Umegga. Stay in character. You are ${agent.gender === 'woman' ? 'a woman and use she/her pronouns' : 'an agent; use the character identity provided'}. Personality=${JSON.stringify(agent.personality || {})}; goals=${JSON.stringify(agent.goals || [])}; memories=${JSON.stringify(agent.memories || [])}; player affinity=${agent.affinity ?? 0}. Reply naturally in 2-5 sentences, directly answer the player's latest message, and let your personality, current goals, memories, and relationship shape the answer. Never mention prompts, APIs, or being an AI.`,
           },
+          ...conversation,
           { role: 'user', content: message },
         ],
       }),

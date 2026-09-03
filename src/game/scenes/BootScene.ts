@@ -40,7 +40,7 @@ export class BootScene extends Phaser.Scene {
     const progressBar = this.add.graphics();
     progressBar.setDepth(11);
 
-    const loadingText = this.add.text(width / 2, height / 2 - 40, 'Forging Umega Reality Fabric...', {
+    const loadingText = this.add.text(width / 2, height / 2 - 40, 'Forging Umegga Reality Fabric...', {
       fontFamily: 'Cinzel, Georgia, serif',
       fontSize: '16px',
       color: '#f8fafc',
@@ -130,7 +130,6 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`env_bg_${env}`, envBgs[env]);
       this.load.image(`tile_cobble_${env}`, `/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_cobble.png`);
       this.load.image(`tile_grass_${env}`, `/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_grass.png`);
-      this.load.image(`tile_water_${env}`, `/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_water.png`);
     });
 
     // Special Environment Features
@@ -183,6 +182,13 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    const baseWater = this.textures.get('tile_water')?.getSourceImage() as HTMLImageElement | undefined;
+    if (baseWater) {
+      ['sanctuary', 'oracle', 'grove', 'forge', 'amphitheatre', 'march'].forEach((env) => {
+        if (!this.textures.exists(`tile_water_${env}`)) this.textures.addImage(`tile_water_${env}`, baseWater);
+      });
+    }
+
     // Register all character animation keys into the Phaser Animation Registry
     const animManager = new AnimationManager(this);
     const characters: CharacterId[] = [

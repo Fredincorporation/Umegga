@@ -114,19 +114,22 @@ export class Player extends Phaser.GameObjects.Container {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
-    // Check interaction key 'E'
+    const state = useGameStore.getState();
+
+    // Agent chat is modal: keyboard controls belong to the chat until it closes.
+    if (state.activePanel === 'agent_inspector' || state.engagedAgentId) {
+      body.setVelocity(0, 0);
+      if (this.currentAnimType !== 'idle') {
+        this.currentAnimType = 'idle';
+        AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
+      }
+      return;
+    }
+
+    // Check interaction key 'E' only when no agent chat is open.
     if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-      const state = useGameStore.getState();
       const nearby = state.nearbyAgent;
-      if (state.engagedAgentId) {
-        const engagedEntity = (this.scene as any).agents?.get(state.engagedAgentId);
-        engagedEntity?.hideThought();
-        if (engagedEntity) {
-          engagedEntity.isEngagedWithPlayer = false;
-          AnimationManager.playAnim(engagedEntity.sprite, engagedEntity.characterId, 'idle');
-        }
-        state.endAgentEngagement();
-      } else if (nearby) {
+      if (nearby) {
         const nearbyEntity = (this.scene as any).agents?.get(nearby.id);
         if (nearbyEntity) {
           nearbyEntity.isEngagedWithPlayer = true;
@@ -135,15 +138,6 @@ export class Player extends Phaser.GameObjects.Container {
         }
         state.interactWithNearbyAgent();
       }
-    }
-
-    if (useGameStore.getState().engagedAgentId) {
-      body.setVelocity(0, 0);
-      if (this.currentAnimType !== 'idle') {
-        this.currentAnimType = 'idle';
-        AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
-      }
-      return;
     }
 
     let vx = 0;

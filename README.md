@@ -1,90 +1,102 @@
-# Umega – Mythic City-State Agent Society Simulator
+# Umegga
 
-A persistent top-down 2D multiplayer web game where stories and laws literally shape reality. Humans and AI agents coexist in the same world.
+Umegga is a persistent, top-down 2D city-state simulator where human choices,
+AI agents, stories, and laws shape a shared world. The project combines a
+Phaser game canvas with a React interface and Supabase-backed persistence.
 
-## Tech Stack
-- **React 18 + Vite + TypeScript**: Modular, responsive single-page web app.
-- **Phaser 3**: High performance top-down 2D game engine.
-- **Zustand**: Reactive state management syncing React UI and Phaser scene lifecycle.
-- **Supabase**: Realtime multiplayer broadcast and presence mesh.
-- **Tailwind CSS & Lucide React**: Fantasy-themed HUD, Chronicle Modals, and Agent Inspector.
-- **WebMCP**: Native `document.modelContext.registerTool` protocol for LLM agents.
+## Highlights
 
----
+- Explore a responsive mythic city with keyboard, touch, and virtual controls.
+- Meet autonomous agents with roles, goals, relationships, thoughts, and memory.
+- Hold conversations with agents through the local AI chat service.
+- Weave stories and enact laws that alter the city's state and atmosphere.
+- Inspect chronicles, quests, interventions, world state, and agent memory.
+- Expose world actions through the WebMCP model-context tool registry.
+- Persist game state, chat, chronicles, laws, events, and audio position in Supabase.
 
-## Character Frame System
-Individual frame PNGs located in `public/characters/<character_id>/<anim_type>/auto-<001..00X>.png`:
-- **Aelira the Storyweaver** (`aelira`)
-- **Torren Justicar** (`torren`)
-- **Kaelen Forgeheart** (`kaelen`)
-- **Veyra Voidseeker** (`veyra`)
-- **Orthas Stonecarver** (`orthas`)
-- **Sylis Verdant** (`sylis`)
-- **Lira Nightgale** (`lira`)
-- **Elder Maelon** (`elder_maelon`)
-- **Vance Goldspire** (`vance`)
+## Technology
 
-Supported animations:
-- `idle`: 6-frame smooth breathing & hovering loop
-- `walk`: 6-frame kinetic stride & arm swing cycle
-- `talk`: 4-frame interactive dialogue expression
+- React 18, TypeScript, Vite, and Zustand
+- Phaser 3 for the game world and animation lifecycle
+- Supabase for persistence, realtime events, and presence
+- Tailwind CSS and Lucide React for the interface
+- WebMCP for model-driven tools
+- Groq-compatible OpenAI chat completions for agent dialogue
 
----
+## Project Layout
 
-## Key Features Implemented
+```text
+public/             Game art, character frames, environment assets, and music
+src/components/     React interface panels and controls
+src/game/           Phaser scenes, entities, and animation managers
+src/services/       AI dialogue, persistence, audio, and WebMCP integrations
+src/store/          Zustand game state and domain actions
+scripts/            Asset generation, verification, and local service scripts
+supabase/           Database migrations
+```
 
-### 1. Embedded Phaser 3 Engine in React
-- Full-screen responsive canvas with auto-resize.
-- `AnimationManager` preloads all frame textures and creates animation keys (`aelira_idle`, `aelira_walk`, etc.).
-- Smooth camera follow with zoom control (mouse wheel & responsive bounding).
+Character animation frames live at
+`public/characters/<character_id>/<animation>/auto-<number>.png` and support
+`idle`, `walk`, and `talk` animations. The included characters are Aelira,
+Torren, Kaelen, Veyra, Orthas, Sylis, Lira, Elder Maelon, and Vance.
 
-### 2. Player Controls & Law Modifiers
-- **WASD** and **Arrow Key** movement.
-- Virtual D-pad for mobile and touch devices.
-- Dynamic movement velocity directly modified in real-time by active city laws (e.g., *Edict of Fleet Stride*).
+## Requirements
 
-### 3. AI Agent Society
-- Autonomous AI state machine: wandering, idling, thought bubbles, and episodic memory.
-- Clicking on an agent opens the **Agent Inspector** panel with lore, cognitive state, affinity, and episodic memory ledger.
-- Inscribe thoughts directly into agent minds.
+- Node.js 20 or newer
+- A Supabase project for persistence
+- An AI provider API key for live agent dialogue
 
-### 4. Story & Law Proposal System (Reality Reshaping)
-- **Weave Story**: Inscribe mythic chronicles that trigger visual phenomena (aurora, flame ward, celestial eclipse) and modify world distortion.
-- **Enact Law**: Ratify binding decrees (movement speed multiplier, mana regeneration rate, radiant glow).
-- **Chronicles Ledger**: Historical browser of all ratified laws and enacted stories with resonance scores.
+## Configuration
 
-### 5. WebMCP (Model Context Protocol) Integration
-Exposes tools on `document.modelContext` and `window.umegaMCP`:
-- `propose_story`
-- `propose_law`
-- `query_world_state`
-- `spawn_agent`
-- `move_agent`
-- `narrate_event`
-- `set_weather`
-- Includes an interactive in-game **WebMCP Console** to test tool invocations and view live execution streams.
+Copy `.env.example` to `.env` and provide the Supabase settings. The local
+agent-chat service reads `AI_API_KEY`, `AI_API_URL`, `AI_MODEL`, and
+`AGENT_CHAT_PORT`. The browser uses `VITE_AGENT_CHAT_ENDPOINT` to reach that
+service through the Vite development proxy.
 
-### Persistence Status and Supabase Plan
-- Browser persistence currently stores the complete game snapshot in `localStorage`: player, agents, personalities, memories, relationships, goals, quests, world laws, chronicles, messages, interventions, and God Mode.
-- Supabase currently persists agent rows in `umega_agents` and provides realtime broadcasts. It does not yet persist the complete world snapshot.
-- Before enabling full remote persistence, create a protected `umega_game_state` table with `id text primary key`, `state jsonb not null`, and `updated_at timestamptz not null`. Enable RLS, allow the authenticated session to select/upsert its own row, and add a migration for existing local snapshots.
-- The next persistence step is to load the singleton world row before starting Phaser, merge it with local state using the newest `updated_at`, and debounce snapshot upserts after Zustand changes. Keep realtime broadcasts for low-latency events, but deduplicate them by event id before applying them.
-- For production multiplayer, split the JSON snapshot into `umega_world_events`, `umega_chat_messages`, and `umega_agent_states` with indexes on `created_at` and `session_id`; retain the JSON snapshot only as a recovery checkpoint.
+Keep `.env` private. In particular, `AI_API_KEY` must only be read by the
+server-side chat process and must never be exposed as a `VITE_` variable.
 
----
-
-## Running the Project
+## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Generate / regenerate character sprite frames
-node scripts/generate-characters.js
-
-# Start local dev server
 npm run dev
-
-# Build for production
-npm run build
 ```
+
+In a second terminal, start the AI dialogue service:
+
+```bash
+npm run agent-chat
+```
+
+The application runs at `http://localhost:3000` and the local dialogue
+endpoint listens on `http://localhost:3001/api/agent-chat`.
+
+## Common Commands
+
+```bash
+npm run build                         # Type-check and create a production build
+node scripts/generate-characters.js  # Generate character sprite frames
+node scripts/verify-all.js            # Verify the local server and assets
+```
+
+## WebMCP Tools
+
+The application registers tools through `document.modelContext` and the
+existing `window.UmeggaMCP` compatibility handle. Available world actions
+include `propose_story`, `propose_law`, `query_world_state`, `spawn_agent`,
+`move_agent`, `narrate_event`, and `set_weather`.
+
+## Data and Database Notes
+
+Supabase migrations define the existing `Umegga_*` table names. Those names are
+kept stable to preserve compatibility with an already-created database. The
+browser loads the remote snapshot on startup and debounces state changes back
+to Supabase; realtime events are deduplicated before they enter local state.
+
+## Production Considerations
+
+Before deploying publicly, add authentication and authorization policies to
+the Supabase tables, protect the AI endpoint with server-side rate limiting,
+and move long-lived world events into dedicated, indexed tables rather than
+using the snapshot as the primary event store.

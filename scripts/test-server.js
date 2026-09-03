@@ -8,7 +8,7 @@ function check() {
       console.log('Status code:', res.statusCode);
       console.log('HTML length:', data.length);
       console.log('Contains root div:', data.includes('id="root"'));
-      console.log('Contains Umega title:', data.includes('Umega'));
+      console.log('Contains Umegga title:', data.includes('Umegga'));
     });
   }).on('error', (err) => {
     console.error('Error connecting to preview:', err.message);

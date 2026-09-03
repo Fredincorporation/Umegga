@@ -13,8 +13,8 @@ export const WebMCPConsole: React.FC = () => {
 
   if (activePanel !== 'mcp_console') return null;
 
-  const toolsList = typeof window !== 'undefined' && window.umegaMCP
-    ? window.umegaMCP.getTools()
+  const toolsList = typeof window !== 'undefined' && window.UmeggaMCP
+    ? window.UmeggaMCP.getTools()
     : [];
 
   const handleSelectTool = (toolName: string) => {
@@ -29,7 +29,7 @@ export const WebMCPConsole: React.FC = () => {
         JSON.stringify(
           {
             title: 'The Great Aether Alignment',
-            content: 'The stars aligned in an unprecedented harmonic pattern above Umega.',
+            content: 'The stars aligned in an unprecedented harmonic pattern above Umegga.',
             impact: 'Ambient mana capacity tripled across the sanctuary.',
             visualEffect: 'aurora',
           },
@@ -102,13 +102,13 @@ export const WebMCPConsole: React.FC = () => {
   };
 
   const handleExecute = async () => {
-    if (!window.umegaMCP) return;
+    if (!window.UmeggaMCP) return;
     setIsExecuting(true);
     setErrorMessage(null);
 
     try {
       const parsedArgs = JSON.parse(paramsJson);
-      const res = await window.umegaMCP.callTool(selectedTool, parsedArgs);
+      const res = await window.UmeggaMCP.callTool(selectedTool, parsedArgs);
       setLastResult(res);
     } catch (err: any) {
       setErrorMessage(err.message || 'Execution error');
@@ -131,6 +131,9 @@ export const WebMCPConsole: React.FC = () => {
                 <h2 className="font-fantasy font-bold text-lg text-emerald-300">WebMCP Agent Protocol</h2>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/30 text-emerald-300 font-mono">
                   document.modelContext
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded border font-mono ${toolsList.length >= 13 ? 'bg-emerald-950 border-emerald-500/30 text-emerald-300' : 'bg-amber-950 border-amber-500/30 text-amber-300'}`}>
+                  {toolsList.length >= 13 ? 'ACTIVE' : 'INCOMPLETE'}
                 </span>
               </div>
               <p className="text-xs text-slate-400">Interact directly with registered LLM agent tools</p>
@@ -190,6 +193,9 @@ export const WebMCPConsole: React.FC = () => {
               <textarea
                 value={paramsJson}
                 onChange={(e) => setParamsJson(e.target.value)}
+                onKeyDown={(event) => event.stopPropagation()}
+                spellCheck={false}
+                aria-label={`${selectedTool} parameters`}
                 rows={5}
                 className="w-full bg-slate-900 border border-slate-700 font-mono text-[11px] text-emerald-300 p-2.5 rounded-xl focus:outline-none focus:border-emerald-400 resize-none"
               />

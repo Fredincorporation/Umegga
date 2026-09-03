@@ -1,6 +1,6 @@
+import { loadAudioState, saveAudioState } from './supabase';
+
 const TRACK_URLS = ['/music/1.ogg', '/music/2.ogg'];
-const TRACK_STATE_KEY = 'umega-music-track';
-const POSITION_STATE_KEY = 'umega-music-position';
 const DEFAULT_VOLUME = 0.45;
 
 class AudioManager {
@@ -15,12 +15,34 @@ class AudioManager {
   start() {
     if (this.started || typeof window === 'undefined') return;
 
-    this.currentIndex = this.readTrackIndex();
-    this.startPosition = this.readPosition();
+    // Music resume point is persisted in Supabase (Umegga_audio_state), not in
+    // the browser. Playback starts immediately with defaults and seeks once
+    // the remote row arrives.
     this.currentTrack = this.getTrack(this.currentIndex);
     this.currentTrack.volume = this.volume;
     this.currentTrack.autoplay = false;
     this.currentTrack.addEventListener('loadedmetadata', this.handleCurrentMetadata);
+
+    void loadAudioState()
+      .then((state) => {
+        if (!state) return;
+        if (Number.isInteger(state.track_index) && state.track_index >= 0 && state.track_index < TRACK_URLS.length && state.track_index !== this.currentIndex) {
+          this.currentIndex = state.track_index;
+          const next = this.getTrack(this.currentIndex);
+          next.volume = this.volume;
+          next.autoplay = false;
+          next.addEventListener('loadedmetadata', this.handleCurrentMetadata);
+          next.muted = this.currentTrack?.muted ?? false;
+          this.currentTrack?.pause();
+          this.currentTrack = next;
+          next.load();
+        }
+        if (Number.isFinite(state.position_seconds) && state.position_seconds > 0) {
+          this.startPosition = state.position_seconds;
+        }
+        void this.playCurrentTrack();
+      })
+      .catch((error) => console.error('[Supabase] audio state load failed:', error));
 
     this.unlockHandler = () => {
       if (this.currentTrack?.muted) {
@@ -128,19 +150,11 @@ class AudioManager {
 
   private saveState = () => {
     if (!this.currentTrack) return;
-    localStorage.setItem(TRACK_STATE_KEY, String(this.currentIndex));
-    localStorage.setItem(POSITION_STATE_KEY, String(this.currentTrack.currentTime));
+    void saveAudioState({
+      track_index: this.currentIndex,
+      position_seconds: this.currentTrack.currentTime,
+    }).catch((error) => console.error('[Supabase] audio state save failed:', error));
   };
-
-  private readTrackIndex() {
-    const value = Number.parseInt(localStorage.getItem(TRACK_STATE_KEY) ?? '0', 10);
-    return Number.isInteger(value) && value >= 0 && value < TRACK_URLS.length ? value : 0;
-  }
-
-  private readPosition() {
-    const value = Number.parseFloat(localStorage.getItem(POSITION_STATE_KEY) ?? '0');
-    return Number.isFinite(value) && value >= 0 ? value : 0;
-  }
 }
 
 export const audioManager = new AudioManager();

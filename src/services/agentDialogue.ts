@@ -26,28 +26,40 @@ function fallbackReply(agent: AgentState, message: string): string {
   if (normalized.includes('law') || normalized.includes('rule')) {
     return `${greeting} A law must protect the living fabric as well as constrain it. I will weigh its cost carefully.${memoryLine}`;
   }
-  return `${greeting} I have considered "${message.trim()}". From my station as ${agent.role}, I believe ${traits && traits.order > traits.idealism ? 'discipline and useful action' : 'meaning and imagination'} will serve Umega best.${goalLine}`;
+  return `${greeting} I have considered "${message.trim()}". From my station as ${agent.role}, I believe ${traits && traits.order > traits.idealism ? 'discipline and useful action' : 'meaning and imagination'} will serve Umegga best.${goalLine}`;
 }
 
-export async function generateAgentReply(agent: AgentState, message: string): Promise<string> {
-  const endpoint = import.meta.env.VITE_AGENT_CHAT_ENDPOINT;
-  if (endpoint) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agent: { name: agent.name, role: agent.role, personality: agent.personality, goals: agent.goals || [], memories: agent.memory.slice(0, 8), affinity: agent.affinityWithPlayer },
-          message,
-        }),
-      });
-      if (response.ok) {
-        const result = await response.json() as { reply?: string };
-        if (result.reply?.trim()) return result.reply.trim();
-      }
-    } catch {
-      // The local character model keeps conversations available when the endpoint is unavailable.
+export async function generateAgentReply(
+  agent: AgentState,
+  message: string,
+  conversation: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+): Promise<string> {
+  const endpoint = import.meta.env.VITE_AGENT_CHAT_ENDPOINT || '/api/agent-chat';
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent: {
+          name: agent.name,
+          role: agent.role,
+          characterId: agent.characterId,
+          gender: ['aelira', 'sylis', 'lira'].includes(agent.characterId) ? 'woman' : undefined,
+          personality: agent.personality,
+          goals: agent.goals || [],
+          memories: agent.memory.slice(0, 8),
+          affinity: agent.affinityWithPlayer,
+        },
+        message,
+        conversation: conversation.slice(-12),
+      }),
+    });
+    if (response.ok) {
+      const result = await response.json() as { reply?: string };
+      if (result.reply?.trim()) return result.reply.trim();
     }
+  } catch {
+    // Fall back only when the AI service cannot be reached.
   }
   return fallbackReply(agent, message);
 }

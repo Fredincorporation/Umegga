@@ -12,7 +12,7 @@ const LAW_PRESETS: Array<{
 }> = [
     {
       title: 'Edict of Fleet Stride',
-      edict: 'All denizens of Umega are granted 35% increased traverse velocity upon the sacred paved highways.',
+      edict: 'All denizens of Umegga are granted 35% increased traverse velocity upon the sacred paved highways.',
       category: 'Reality Edict',
       effectType: 'speed_boost',
       magnitude: 1.35,

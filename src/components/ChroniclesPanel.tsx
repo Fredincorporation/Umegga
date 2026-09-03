@@ -19,7 +19,7 @@ export const ChroniclesPanel: React.FC = () => {
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="font-fantasy font-bold text-lg text-purple-300">The Great Chronicles of Umega</h2>
+              <h2 className="font-fantasy font-bold text-lg text-purple-300">The Great Chronicles of Umegga</h2>
               <p className="text-xs text-slate-400">Archived reality-shaping stories and binding civic laws</p>
             </div>
           </div>
@@ -72,7 +72,7 @@ export const ChroniclesPanel: React.FC = () => {
                     {story.resonance}% Resonance
                   </span>
                 </div>
-                <p className="text-slate-300 leading-relaxed italic line-clamp-2">"{story.content}"</p>
+                <p className="text-slate-300 leading-relaxed italic line-clamp-2">"{story.summary || story.content}"</p>
                 <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800">
                   <div className="flex items-center gap-2">
                     <span>Woven by: <strong className="text-slate-200">{story.author}</strong></span>

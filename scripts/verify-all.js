@@ -15,7 +15,7 @@ function testUrl(path) {
 }
 
 async function main() {
-  console.log('=== VERIFYING UMEGA SERVER & ASSETS ===');
+  console.log('=== VERIFYING Umegga SERVER & ASSETS ===');
 
   const rootRes = await testUrl('/');
   console.log(`Root / status: ${rootRes.status} (bytes: ${rootRes.length})`);

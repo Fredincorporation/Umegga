@@ -1,3 +1,16 @@
+function snapshotForPersistence(state: GameStore): PersistedGameState {
+  return {
+    player: state.player,
+    agents: state.agents,
+    quests: state.quests,
+    dailyQuests: state.dailyQuests,
+    dailyQuestDay: state.dailyQuestDay,
+    world: state.world,
+    messages: state.messages,
+    interventionRequests: state.interventionRequests,
+    godMode: state.godMode,
+  };
+}
 import { create } from 'zustand';
 import {
   CharacterId,
@@ -18,8 +31,8 @@ import {
   AgentPersonality,
 } from '../types/game';
 import { generateAgentReply } from '../services/agentDialogue';
-import { INITIAL_AGENTS, PERSONALITY_PROFILES } from '../constants/characters';
-import { loadPersistedAgents, realtimeBridge, savePersistedAgents, supabase } from '../services/supabase';
+import { PERSONALITY_PROFILES } from '../constants/characters';
+import { loadChronicles, loadChatMessages, loadLaws, loadMCPLogs, loadPersistedAgents, loadPersistedGameState, loadWorldEvents, realtimeBridge, saveChatMessage, saveChronicle, saveLaw, savePersistedAgents, savePersistedGameState, saveWorldEvent, supabase } from '../services/supabase';
 
 interface GameStore {
   // Player
@@ -88,33 +101,71 @@ interface GameStore {
   logMCPCall: (tool: string, args: any, result: any) => void;
 }
 
-const PERSISTED_GAME_KEY = 'umega-game-state-v1';
-
 type PersistedGameState = Pick<GameStore, 'player' | 'agents' | 'quests' | 'dailyQuests' | 'dailyQuestDay' | 'world' | 'messages' | 'interventionRequests' | 'godMode'>;
 
-function getPersistedGameState(): Partial<PersistedGameState> {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(localStorage.getItem(PERSISTED_GAME_KEY) || '{}');
-  } catch {
-    return {};
-  }
+function ensureLongFormStory(title: string, content: string, impact: string): string {
+  if (content.trim().length >= 500 && content.includes('\n\n')) return content.trim();
+  return `${content.trim()}\n\nThe change did not end when the words were spoken. Across Umegga, citizens noticed the first consequence in the places they knew best, and each witness carried a different version of the moment into the next conversation. The story gathered weight as it moved from voice to voice.\n\nBy the following dusk, ${title} had become more than an event. It had become a choice the city could remember: ${impact}`;
 }
 
-function normalizeAgent(agent: AgentState): AgentState {
+function createStartingGoal(agent: AgentState): AgentGoal {
+  const role = agent.role.toLowerCase();
+  let type: AgentGoal['type'] = 'gather_knowledge';
+  let title = 'Study the changing city';
+  let description = 'Gather knowledge about a changing part of Umegga and share what you learn.';
+
+  if (role.includes('artisan') || role.includes('architect')) {
+    type = 'build';
+    title = 'Strengthen Umegga';
+    description = 'Find a place where practical work can make the city safer or more useful.';
+  } else if (role.includes('arbiter')) {
+    type = 'enforce_law';
+    title = 'Guard civic balance';
+    description = 'Observe the city and uphold fair order without silencing its people.';
+  } else if (role.includes('oracle')) {
+    type = 'travel';
+    title = 'Read the distant signs';
+    description = 'Travel through the districts and bring back one useful warning or insight.';
+  } else if (role.includes('botanist')) {
+    type = 'protect_area';
+    title = 'Tend the living roots';
+    description = 'Protect a living place and keep its inhabitants safe while it grows.';
+  } else if (role.includes('bard') || role.includes('minstrel')) {
+    type = 'communicate';
+    title = 'Keep the city connected';
+    description = 'Speak with another inhabitant and strengthen a meaningful connection.';
+  } else if (role.includes('merchant')) {
+    type = 'support_ally';
+    title = 'Build a useful alliance';
+    description = 'Support an ally through a practical exchange that benefits the city.';
+  } else if ((agent.personality?.traits.idealism || 0) > 0.7) {
+    type = 'personality_growth';
+    title = 'Turn vision into action';
+    description = agent.personality?.growthFocus || 'Practice one grounded action that helps another inhabitant.';
+  }
+
   return {
-    ...agent,
-    goals: (agent.goals || []).map((goal) => ({ ...goal, type: goal.type || 'gather_knowledge' })),
-    relationships: agent.relationships || [],
-    personality: agent.personality || PERSONALITY_PROFILES[agent.characterId],
+    id: `goal_${agent.id}_starting`,
+    type,
+    title,
+    description,
+    priority: 6,
+    status: 'active',
+    updatedAt: new Date().toISOString(),
   };
 }
 
-const LONG_FORM_CHRONICLES: Record<string, string> = {
-  'The Great Awakening of Umega': 'When the first words were inscribed upon the star-stone, the city materialized from sheer imagination.\n\nAelira spoke the opening sentence while the others gathered beneath the unfinished sky. Each syllable gave the void a boundary: a road where there had been silence, a fountain where there had been thirst, and a sanctuary where frightened ideas could meet without vanishing.\n\nThe city did not arrive complete. Its towers leaned toward the voices that named them, and its first lights flickered whenever the people disagreed. Maelon taught the newborn streets to remember, while Aelira learned that a story becomes real only when other lives make room for it.\n\nAt dawn, the star-stone settled into the heart of Umega. Its aether has flowed ever since, fed by every promise, argument, craft, and kindness the city chooses to keep.',
-  'The Whispering Spores': 'Sylis planted the seeds of eternal memory along the stone plazas.\n\nHe had collected them from the shadow beneath the World-Root, where forgotten names gathered like fallen leaves. The seeds were small enough to hide beneath a fingernail, yet each carried the echo of a place no living map could find.\n\nWhen the first green shoots appeared, they whispered fragments of history into the paving stones. Children heard the laughter of vanished festivals. Builders remembered bridges their ancestors had never finished. Even the weeds carried lessons about surviving in cracks.\n\nSylis kept no single record of the event. Instead, he asked the citizens to become its archive, passing each memory hand to hand until the whole plaza breathed with a history no one person could own.',
-  'The Lanterns Remember': 'Every lantern in Umega keeps one kindness and gives it back at dusk.\n\nLira carried this promise from door to door, asking no one for a grand gesture. A cup of water, a repaired clasp, a listening ear: each small mercy became a spark beneath the glass.\n\nWhen evening arrived, the lanterns did not merely brighten the streets. They returned those remembered acts as pools of warm light, guiding strangers toward one another.',
-};
+function normalizeAgent(agent: AgentState): AgentState {
+  const goals = (agent.goals || [])
+    .filter((goal) => goal.status === 'active' || goal.status === 'completed' || goal.status === 'blocked')
+    .map((goal) => ({ ...goal, type: goal.type || 'gather_knowledge' }));
+  return {
+    ...agent,
+    relationships: agent.relationships || [],
+    personality: agent.personality || PERSONALITY_PROFILES[agent.characterId],
+    goals: goals.some((goal) => goal.status === 'active') ? goals : [createStartingGoal(agent), ...goals],
+  };
+}
 
 function normalizeWorld(world: WorldState): WorldState {
   const seenLaws = new Set<string>();
@@ -123,8 +174,8 @@ function normalizeWorld(world: WorldState): WorldState {
     ...world,
     activeLaws: world.activeLaws.filter((law) => {
       const isAutonomousLaw = law.id.startsWith('law_agent_');
-      const legacyAutonomousDay = isAutonomousLaw && !/^\d{4}-\d{2}-\d{2}$/.test(law.passedAt) ? 'legacy' : law.passedAt;
-      const key = `${law.author}|${law.title}|${law.edict}|${legacyAutonomousDay}`;
+      const autonomousDay = isAutonomousLaw ? (/^\d{4}-\d{2}-\d{2}$/.test(law.passedAt) ? law.passedAt : 'legacy') : '';
+      const key = isAutonomousLaw ? `${law.author}|${autonomousDay}` : `${law.author}|${law.title}|${law.edict}|${law.passedAt}`;
       if (seenLaws.has(key)) return false;
       seenLaws.add(key);
       return true;
@@ -134,17 +185,15 @@ function normalizeWorld(world: WorldState): WorldState {
       if (seenStories.has(key)) return false;
       seenStories.add(key);
       return true;
-    }).map((story) => story.content.length < 180 && LONG_FORM_CHRONICLES[story.title]
-      ? { ...story, fullContent: LONG_FORM_CHRONICLES[story.title] }
-      : story),
+    }),
   };
 }
 
-const persistedState = getPersistedGameState();
-
+// All persistent values live in Supabase; the store boots with defaults and
+// hydrates from the remote snapshot once it arrives.
 const DAILY_QUEST_POOL: Omit<Quest, 'id' | 'currentCount' | 'completed' | 'expiresAt'>[] = [
   { title: 'A Conversation Worth Keeping', description: 'Speak with an agent and leave a meaningful impression.', objective: 'Talk to any agent', targetType: 'talk', targetCount: 1, rewardMana: 30, rewardRenown: 15, category: 'core' },
-  { title: 'Weather in the Words', description: 'Weave a story powerful enough to change Umega\'s atmosphere.', objective: 'Weave a story', targetType: 'story', targetCount: 1, rewardMana: 45, rewardRenown: 20, category: 'core' },
+  { title: 'Weather in the Words', description: 'Weave a story powerful enough to change Umegga\'s atmosphere.', objective: 'Weave a story', targetType: 'story', targetCount: 1, rewardMana: 45, rewardRenown: 20, category: 'core' },
   { title: 'A Law Made Visible', description: 'Enact a law and observe its consequence.', objective: 'Enact a law', targetType: 'law', targetCount: 1, rewardMana: 40, rewardRenown: 20, category: 'core' },
   { title: 'Hands That Build', description: 'Place a structure where the city needs it.', objective: 'Build a structure', targetType: 'build', targetCount: 1, rewardMana: 35, rewardRenown: 15, category: 'core' },
   { title: 'Threads of Trust', description: 'Form or witness a meaningful alliance.', objective: 'Form an alliance', targetType: 'alliance', targetCount: 1, rewardMana: 40, rewardRenown: 25, category: 'core' },
@@ -171,67 +220,7 @@ function createDailyQuests(day: string): Quest[] {
 }
 
 const today = dailyKey();
-const initialDailyQuests = persistedState.dailyQuestDay === today && persistedState.dailyQuests?.length
-  ? persistedState.dailyQuests
-  : createDailyQuests(today);
-
-const INITIAL_STORIES: StoryEntry[] = [
-  {
-    id: 'story_genesis',
-    title: 'The Great Awakening of Umega',
-    content: 'When the first words were inscribed upon the star-stone, the city materialized from sheer imagination.',
-    fullContent: LONG_FORM_CHRONICLES['The Great Awakening of Umega'],
-    author: 'Aelira the Storyweaver',
-    timestamp: 'Age of Dawn',
-    impactSummary: 'Sanctuary created with perpetual aether flow.',
-    visualEffectType: 'aurora',
-    resonance: 98,
-    enacted: true,
-  },
-  {
-    id: 'story_verdant',
-    title: 'The Whispering Spores',
-    content: 'Sylis planted the seeds of eternal memory along the stone plazas.',
-    fullContent: LONG_FORM_CHRONICLES['The Whispering Spores'],
-    author: 'Sylis Verdant',
-    timestamp: 'Age of Blossoms',
-    impactSummary: 'Flora pulses with harmonic healing aura.',
-    visualEffectType: 'verdant_bloom',
-    resonance: 84,
-    enacted: true,
-  },
-];
-
-const INITIAL_LAWS: LawEntry[] = [
-  {
-    id: 'law_harmony',
-    title: 'Decree of Harmonic Momentum',
-    edict: 'All inhabitants shall experience enhanced kinetic grace across paved plazas.',
-    author: 'Torren Justicar',
-    category: 'Reality Edict',
-    passedAt: 'Cycle 104',
-    active: true,
-    effect: {
-      type: 'speed_boost',
-      magnitude: 1.25,
-      description: '+25% movement velocity on cobblestone paths.',
-    },
-  },
-  {
-    id: 'law_mana',
-    title: 'Aether Reservoir Maintenance',
-    edict: 'Raw thought energy is continuously filtered into the city core.',
-    author: 'Elder Maelon',
-    category: 'Arcane Decree',
-    passedAt: 'Cycle 110',
-    active: true,
-    effect: {
-      type: 'mana_regeneration',
-      magnitude: 5,
-      description: '+5 Mana gained per 10 seconds.',
-    },
-  },
-];
+const initialDailyQuests = createDailyQuests(today);
 
 const INITIAL_QUESTS: Quest[] = [
   {
@@ -250,7 +239,7 @@ const INITIAL_QUESTS: Quest[] = [
   {
     id: 'quest_2_story',
     title: 'Inscribing Reality',
-    description: 'Weave a new mythic chronicle to reshape the atmospheric reality of Umega.',
+    description: 'Weave a new mythic chronicle to reshape the atmospheric reality of Umegga.',
     objective: 'Weave 1 Mythic Story',
     targetType: 'story',
     targetCount: 1,
@@ -300,7 +289,12 @@ const INITIAL_QUESTS: Quest[] = [
 export const useGameStore = create<GameStore>((set, get) => {
   // Listen for real-time broadcast events from other tabs / players
   realtimeBridge.onMessage((msg) => {
-    set((state) => ({ messages: [...state.messages.slice(-50), msg] }));
+    set((state) => {
+      // Skip messages we already have (by id, or identical sender+text from a
+      // cross-tab broadcast echo) so realtime never duplicates chat entries.
+      if (state.messages.some((existing) => existing.id === msg.id || (existing.sender === msg.sender && existing.text === msg.text && existing.timestamp === msg.timestamp))) return {};
+      return { messages: [...state.messages.slice(-50), msg] };
+    });
   });
 
   realtimeBridge.onStory((story) => {
@@ -331,7 +325,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   });
 
   return {
-    player: persistedState.player || {
+    player: {
       id: 'player_' + Math.random().toString(36).substring(2, 8),
       name: 'Player (Aelira)',
       characterId: 'aelira',
@@ -361,7 +355,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     setPlayerScene: (scene: SceneKey, x?: number, y?: number) => {
       const sceneNames: Record<SceneKey, string> = {
-        SanctuaryScene: 'Umega Central Sanctuary',
+        SanctuaryScene: 'Umegga Central Sanctuary',
         OracleBasinScene: 'The Oracle Basin',
         BotanistGroveScene: 'The Botanist Grove',
         GrandForgeScene: 'The Grand Forge',
@@ -430,8 +424,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       }));
     },
 
-    // Quests
-    quests: persistedState.quests || INITIAL_QUESTS,
+    quests: INITIAL_QUESTS,
     dailyQuests: initialDailyQuests,
     dailyQuestDay: today,
 
@@ -492,8 +485,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       });
     },
 
-    // Agents
-    agents: (persistedState.agents || INITIAL_AGENTS).map(normalizeAgent),
+    agents: [],
     selectedAgentId: null,
     engagedAgentId: null,
     nearbyAgent: null,
@@ -530,23 +522,36 @@ export const useGameStore = create<GameStore>((set, get) => {
     sendMessageToAgent: async (agentId, message) => {
       const agent = get().agents.find((item) => item.id === agentId);
       if (!agent || !message.trim()) return;
+      const conversation = get().messages
+        .filter((item) => item.channel === 'conversation' && (item.recipientAgentId === agentId || item.senderId === agentId))
+        .slice(-12)
+        .map((item) => ({
+          role: item.senderId === agentId ? 'assistant' as const : 'user' as const,
+          content: item.text,
+        }));
       get().addMessage({
         sender: get().player.name,
+        recipientAgentId: agentId,
         avatarId: get().player.characterId,
         text: message.trim(),
         type: 'chat',
+        channel: 'conversation',
       });
-      const reply = await generateAgentReply(agent, message.trim());
+      const reply = await generateAgentReply(agent, message.trim(), conversation);
       const currentAgent = get().agents.find((item) => item.id === agentId);
       if (!currentAgent) return;
       get().addMessage({
         sender: currentAgent.name,
+        senderId: currentAgent.id,
         role: currentAgent.role,
         avatarId: currentAgent.characterId,
         text: reply,
         type: 'agent',
+        channel: 'conversation',
       });
-      get().addAgentThought(agentId, reply);
+      set((state) => ({
+        agents: state.agents.map((item) => item.id === agentId ? { ...item, currentThought: reply } : item),
+      }));
       get().addAgentMemory(agentId, `Player said: "${message.trim()}"`, 6);
       get().addAgentMemory(agentId, `Replied: "${reply}"`, 6);
       get().adjustAgentRelationship(agentId, 'player', 2, 'Shared a meaningful conversation with the player.');
@@ -587,16 +592,6 @@ export const useGameStore = create<GameStore>((set, get) => {
           agent.id === id ? { ...agent, currentThought: thought } : agent
         ),
       }));
-      const targetAgent = get().agents.find((a) => a.id === id);
-      if (targetAgent) {
-        get().addMessage({
-          sender: targetAgent.name,
-          role: targetAgent.role,
-          avatarId: targetAgent.characterId,
-          text: thought,
-          type: 'agent',
-        });
-      }
     },
 
     addAgentMemory: (id: string, memoryEvent: string, importance = 5) => {
@@ -648,6 +643,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       get().evolveAgentPersonality(second.id, { openness: 0.04, empathy: 0.025 }, `An alliance with ${first.name} taught me to trust cooperation.`);
       get().advanceDailyQuest('alliance');
       get().addMessage({ sender: 'Alliance Chronicle', text: `${first.name} and ${second.name} are now ALLIED.`, type: 'system' });
+      void saveWorldEvent('alliance', { firstId, secondId }, `alliance_${firstId}_${secondId}_${Date.now()}`).catch((error) => console.error('[Supabase] alliance event save failed:', error));
       return true;
     },
 
@@ -666,6 +662,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         text: `${structure.name} was built in ${structure.scene}. (-${cost} Mana)`,
         type: 'system',
       });
+      void saveWorldEvent('build', structure, structure.id).catch((error) => console.error('[Supabase] build event save failed:', error));
       return true;
     },
 
@@ -696,8 +693,14 @@ export const useGameStore = create<GameStore>((set, get) => {
           }
           : agent),
       }));
+      if (agent) {
+        const replacement = createStartingGoal(agent);
+        const { id: _goalId, updatedAt: _updatedAt, ...replacementGoal } = replacement;
+        get().setAgentGoal(id, replacementGoal);
+      }
       get().addAgentMemory(id, `Completed goal: ${goal?.title || goalId}.`, 7);
       get().addMessage({ sender: agent?.name || 'Agent', role: agent?.role, avatarId: agent?.characterId, text: `Goal completed: ${goal?.title || goalId}.`, type: 'agent' });
+      void saveWorldEvent('goal', { agentId: id, goalId, title: goal?.title }, `goal_${id}_${goalId}_${Date.now()}`).catch((error) => console.error('[Supabase] goal event save failed:', error));
       get().evolveAgentPersonality(id, { pride: 0.02, openness: 0.01 }, `Completing ${goal?.title || 'a difficult goal'} proved I can grow through practice.`);
     },
 
@@ -737,6 +740,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (meaningful) {
         get().addAgentMemory(id, `I am changing: ${reason}`, 8);
         get().addMessage({ sender: agent.name, role: agent.role, avatarId: agent.characterId, text: `${agent.name} seems changed by experience: ${reason}`, type: 'agent' });
+        void saveWorldEvent('personality', { agentId: id, change, reason }, `personality_${id}_${Date.now()}`).catch((error) => console.error('[Supabase] personality event save failed:', error));
       }
     },
 
@@ -745,21 +749,24 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (!agent || !['aelira', 'lira'].includes(agent.characterId)) return false;
       const today = dailyKey();
       if (get().world.chronicles.some((story) => story.author === agent.name && story.timestamp === today)) return false;
-      const stories: Array<[string, string, string, StoryEntry['visualEffectType']]> = [
-        ['The Lanterns Remember', 'Every lantern in Umega keeps one kindness and gives it back at dusk.\n\nLira carried this promise from door to door, asking no one for a grand gesture. A cup of water, a repaired clasp, a listening ear: each small mercy became a spark beneath the glass.\n\nWhen evening arrived, the lanterns did not merely brighten the streets. They returned those remembered acts as pools of warm light, guiding strangers toward one another.', 'Warmth gathers around shared paths.', 'golden_hour' as const],
-        ['The River Learns Our Names', 'The canals carry the names of those who help the city endure.\n\nAt first the river answered only with a low, silver murmur. Then the names began to surface: the baker who fed a traveler, the mason who braced a failing bridge, the child who returned a lost compass.\n\nBy dawn, every current in Umega knew that a city is not held together by stone alone. It is held by the stories people choose to carry for one another.', 'The atmosphere turns lucid and welcoming.', 'aurora' as const],
+      const stories: Array<[string, string, string, StoryEntry['visualEffectType']]> = ([
+
+        ['The Lanterns Remember', 'Every lantern in Umegga keeps one kindness and gives it back at dusk.\n\nLira carried this promise from door to door, asking no one for a grand gesture. A cup of water, a repaired clasp, a listening ear: each small mercy became a spark beneath the glass.\n\nWhen evening arrived, the lanterns did not merely brighten the streets. They returned those remembered acts as pools of warm light, guiding strangers toward one another.', 'Warmth gathers around shared paths.', 'golden_hour' as const],
+        ['The River Learns Our Names', 'The canals carry the names of those who help the city endure.\n\nAt first the river answered only with a low, silver murmur. Then the names began to surface: the baker who fed a traveler, the mason who braced a failing bridge, the child who returned a lost compass.\n\nBy dawn, every current in Umegga knew that a city is not held together by stone alone. It is held by the stories people choose to carry for one another.', 'The atmosphere turns lucid and welcoming.', 'aurora' as const],
         ['A Song Beneath the Stone', 'There is a note beneath the oldest plaza that no instrument can play. Lira found it by sitting still while the city hurried around her.\n\nShe answered with a melody made from ordinary sounds: footsteps, shutters, breath, and the soft knock of rain. The hidden note rose to meet her, and the stones remembered how to welcome a voice.\n\nSince then, lonely corners have begun to echo with invitations instead of silence.', 'The city becomes more receptive to shared voices.', 'aurora' as const],
-      ].filter(([storyTitle]) => !get().world.chronicles.some((story) => story.author === agent.name && story.title === storyTitle));
+      ] as Array<[string, string, string, StoryEntry['visualEffectType']]>).filter(([storyTitle]) => !get().world.chronicles.some((story) => story.author === agent.name && story.title === storyTitle));
       if (stories.length === 0) return false;
       const [title, content, impact, visualEffectType] = stories[Math.floor(Math.random() * stories.length)];
       const story: StoryEntry = { id: `story_agent_${Date.now()}`, title, content, fullContent: content, author: agent.name, timestamp: today, impactSummary: impact, visualEffectType, resonance: 75 + Math.floor(Math.random() * 20), enacted: true };
       set((state) => ({ world: { ...state.world, chronicles: [story, ...state.world.chronicles], realityDistortion: Math.min(1, state.world.realityDistortion + 0.04) } }));
-      get().addAgentMemory(agentId, `Wove the chronicle "${title}" into Umega.`, 8);
+      get().addAgentMemory(agentId, `Wove the chronicle "${title}" into Umegga.`, 8);
       get().addAgentThought(agentId, `The words are alive: "${title}".`);
       get().evolveAgentPersonality(agentId, { idealism: 0.02, pride: 0.015 }, `Wove "${title}" and saw the city answer.`);
       get().advanceQuest('story');
       get().advanceDailyQuest('story');
       get().addMessage({ sender: agent.name, role: agent.role, avatarId: agent.characterId, text: `Chronicle woven: "${title}".`, type: 'story' });
+      void saveWorldEvent('story', story, story.id).catch((error) => console.error('[Supabase] story event save failed:', error));
+      void saveChronicle(story).catch((error) => console.error('[Supabase] chronicle save failed:', error));
       return true;
     },
 
@@ -767,8 +774,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       const agent = get().agents.find((item) => item.id === agentId);
       if (!agent || !['torren', 'elder_maelon'].includes(agent.characterId)) return false;
       const today = dailyKey();
-      if (get().world.activeLaws.some((law) => law.author === agent.name && law.passedAt === today)) return false;
-      const law: LawEntry = { id: `law_agent_${Date.now()}`, title: agent.personality?.traits.order && agent.personality.traits.order > 0.75 ? 'The Duty of Clear Paths' : 'The Compact of Shared Passage', edict: 'No citizen shall be left without a visible path around an obstruction.', author: agent.name, category: 'Civic Order', passedAt: today, active: true, effect: { type: 'agent_curiosity', magnitude: 1.15, description: 'Agents become more attentive to blocked paths and shared needs.' } };
+      const titleCandidate = agent.personality?.traits.order && agent.personality.traits.order > 0.75 ? 'The Duty of Clear Paths' : 'The Compact of Shared Passage';
+      const edictText = 'No citizen shall be left without a visible path around an obstruction.';
+      if (get().world.activeLaws.some((law) => (law.author === agent.name && law.passedAt === today) || (law.author === agent.name && law.title === titleCandidate && law.edict === edictText))) return false;
+      const law: LawEntry = { id: `law_agent_${Date.now()}`, title: titleCandidate, edict: edictText, author: agent.name, category: 'Civic Order', passedAt: today, active: true, effect: { type: 'agent_curiosity', magnitude: 1.15, description: 'Agents become more attentive to blocked paths and shared needs.' } };
       set((state) => ({ world: { ...state.world, activeLaws: [law, ...state.world.activeLaws] } }));
       get().addAgentMemory(agentId, `Enacted the law "${law.title}".`, 8);
       get().addAgentThought(agentId, `The decree is entered: "${law.title}".`);
@@ -776,11 +785,14 @@ export const useGameStore = create<GameStore>((set, get) => {
       get().advanceQuest('law');
       get().advanceDailyQuest('law');
       get().addMessage({ sender: agent.name, role: agent.role, avatarId: agent.characterId, text: `Law enacted: "${law.title}".`, type: 'law' });
+      void saveWorldEvent('law', law, law.id).catch((error) => console.error('[Supabase] law event save failed:', error));
+      void saveLaw(law).catch((error) => console.error('[Supabase] law save failed:', error));
       return true;
     },
 
     spawnAgent: (agent: AgentState) => {
-      set((state) => ({ agents: [...state.agents, agent] }));
+      const normalizedAgent = normalizeAgent(agent);
+      set((state) => (state.agents.some((existing) => existing.id === agent.id) ? {} : { agents: [...state.agents, normalizedAgent] }));
       get().addMessage({
         sender: 'World Nexus',
         text: `New sentient agent manifested in the city: ${agent.name} (${agent.role})`,
@@ -811,6 +823,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       });
       get().advanceQuest('intervention', agentId);
       get().advanceDailyQuest('intervention', agentId);
+      void saveWorldEvent('intervention', request, request.id).catch((error) => console.error('[Supabase] intervention event save failed:', error));
     },
 
     resolveIntervention: (requestId, accepted) => {
@@ -827,9 +840,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
     },
 
-    // World State
-    world: persistedState.world ? normalizeWorld(persistedState.world) : {
-      cityName: 'Umega Sanctuary',
+    world: {
+      cityName: 'Umegga Sanctuary',
       manaLevel: 450,
       manaByScene: {
         SanctuaryScene: 450,
@@ -842,8 +854,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       },
       weather: 'clear',
       worldAuraColor: '#38bdf8',
-      activeLaws: INITIAL_LAWS,
-      chronicles: INITIAL_STORIES,
+      activeLaws: [],
+      chronicles: [],
       timeOfDay: 1200,
       realityDistortion: 0.15,
       structures: [],
@@ -879,10 +891,13 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
       get().consumeMana(manaCost);
 
+      const narrative = ensureLongFormStory(title, content, impact);
       const newStory: StoryEntry = {
         id: 'story_' + Date.now(),
         title,
-        content,
+        content: narrative,
+        summary: content,
+        fullContent: narrative,
         author: player.name,
         timestamp: 'Present Epoch',
         impactSummary: impact,
@@ -914,6 +929,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       });
 
       realtimeBridge.broadcastStory(newStory);
+      void saveWorldEvent('story', newStory, newStory.id).catch((error) => console.error('[Supabase] story event save failed:', error));
+      void saveChronicle(newStory).catch((error) => console.error('[Supabase] chronicle save failed:', error));
 
       get().addMessage({
         sender: 'Storyweaver Nexus',
@@ -999,6 +1016,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       });
 
       realtimeBridge.broadcastLaw(newLaw);
+      void saveWorldEvent('law', newLaw, newLaw.id).catch((error) => console.error('[Supabase] law event save failed:', error));
+      void saveLaw(newLaw).catch((error) => console.error('[Supabase] law save failed:', error));
 
       get().addMessage({
         sender: 'High Arbiter Council',
@@ -1018,21 +1037,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       }));
     },
 
-    // Chat
-    messages: persistedState.messages || [
-      {
-        id: 'msg_welcome',
-        sender: 'Elder Maelon',
-        role: 'Arch-Philosopher',
-        avatarId: 'elder_maelon',
-        text: 'Welcome, traveler, to Umega. Here, the stories you weave and decrees you enact physically reshape the sanctuary.',
-        timestamp: 'Just now',
-        type: 'agent',
-      },
-    ],
+    messages: [],
 
-    interventionRequests: persistedState.interventionRequests || [],
-    godMode: persistedState.godMode || false,
+    interventionRequests: [],
+    godMode: false,
     setGodMode: (enabled) => set({ godMode: enabled }),
 
     addMessage: (msg) => {
@@ -1041,12 +1049,15 @@ export const useGameStore = create<GameStore>((set, get) => {
         id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       };
-      set((state) => ({
-        messages: [...state.messages.slice(-60), newMsg],
-      }));
+      set((state) => {
+        // Drop exact duplicates (same sender + text) already visible in chat.
+        if (state.messages.some((existing) => existing.sender === newMsg.sender && existing.text === newMsg.text && existing.timestamp === newMsg.timestamp)) return {};
+        return { messages: [...state.messages.slice(-60), newMsg] };
+      });
       if (msg.type === 'chat') {
         realtimeBridge.broadcastMessage(newMsg);
       }
+      void saveChatMessage(newMsg).catch((error) => console.error('[Supabase] chat message save failed:', error));
     },
 
     // UI Panels
@@ -1070,36 +1081,94 @@ export const useGameStore = create<GameStore>((set, get) => {
         text: `Executed with ${JSON.stringify(args)} => Success`,
         type: 'mcp',
       });
+      void saveWorldEvent('mcp_call', log, log.id).catch((error) => console.error('[Supabase] MCP log save failed:', error));
     },
   };
 });
 
-// Persist domain state locally so memories, goals, relationships, and world changes survive refreshes.
+// Persist all domain state to Supabase so memories, goals, relationships, and
+// world changes survive refreshes. Nothing is kept in the browser.
 if (typeof window !== 'undefined') {
   let persistTimer: number | undefined;
+  let gameStatePersistTimer: number | undefined;
+  if (!supabase) {
+    console.warn('[Supabase] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set; game progress will not persist.');
+  }
   useGameStore.subscribe((state) => {
-    const snapshot: PersistedGameState = {
-      player: state.player,
-      agents: state.agents,
-      quests: state.quests,
-      dailyQuests: state.dailyQuests,
-      dailyQuestDay: state.dailyQuestDay,
-      world: state.world,
-      messages: state.messages,
-      interventionRequests: state.interventionRequests,
-      godMode: state.godMode,
-    };
-    localStorage.setItem(PERSISTED_GAME_KEY, JSON.stringify(snapshot));
-    if (supabase) {
-      if (persistTimer) window.clearTimeout(persistTimer);
-      persistTimer = window.setTimeout(() => {
-        void savePersistedAgents(state.agents);
-      }, 800);
-    }
+    const snapshot = snapshotForPersistence(state);
+    if (persistTimer) window.clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => {
+      void savePersistedAgents(state.agents).catch((error) => console.error('[Supabase] agent save failed:', error));
+    }, 800);
+    if (gameStatePersistTimer) window.clearTimeout(gameStatePersistTimer);
+    gameStatePersistTimer = window.setTimeout(() => {
+      void savePersistedGameState(snapshot).catch((error) => console.error('[Supabase] game state save failed:', error));
+    }, 800);
   });
 
-  void loadPersistedAgents().then((agents) => {
-    if (agents.length > 0) useGameStore.setState({ agents: agents.map(normalizeAgent) });
+  void Promise.all([loadPersistedAgents(), loadPersistedGameState(), loadChatMessages(), loadWorldEvents(), loadChronicles(), loadLaws(), loadMCPLogs()]).then(([agents, remoteState, remoteMessages, remoteEvents, remoteChronicles, remoteLaws, remoteMCPLogs]) => {
+    if (remoteState) {
+      const restored = remoteState as Partial<PersistedGameState>;
+      useGameStore.setState({
+        ...restored,
+        ...(restored.agents ? { agents: restored.agents.map(normalizeAgent) } : {}),
+        ...(restored.world ? {
+          world: normalizeWorld({ ...restored.world, chronicles: [], activeLaws: [] }),
+        } : {}),
+      });
+    }
+    if (agents.length > 0 && !remoteState?.agents) useGameStore.setState({ agents: agents.map(normalizeAgent) });
+    if (remoteMCPLogs.length > 0) useGameStore.setState({ mcpLogs: remoteMCPLogs });
+
+    // Merge Supabase-only state that supplements the game-state snapshot.
+    // Dedicated tables are authoritative for enacted stories and active laws.
+    if (remoteMessages.length > 0 || remoteEvents.length > 0 || remoteChronicles.length > 0 || remoteLaws.length > 0) {
+      useGameStore.setState((state) => {
+        const seenMessageIds = new Set(state.messages.map((msg) => msg.id));
+        const mergedMessages = [...state.messages];
+        remoteMessages.forEach((msg) => {
+          if (seenMessageIds.has(msg.id)) return;
+          seenMessageIds.add(msg.id);
+          mergedMessages.push(msg);
+        });
+
+        const seenStoryIds = new Set(state.world.chronicles.map((story) => story.id));
+        const seenStoryKeys = new Set(state.world.chronicles.map((story) => `${story.author}|${story.title}`));
+        const stories = [...state.world.chronicles];
+        const addStory = (story: StoryEntry) => {
+          if (!story?.id || seenStoryIds.has(story.id)) return;
+          const key = `${story.author}|${story.title}`;
+          if (seenStoryKeys.has(key)) return;
+          seenStoryIds.add(story.id);
+          seenStoryKeys.add(key);
+          stories.unshift(story);
+        };
+        remoteChronicles.forEach(addStory);
+
+        const seenLawIds = new Set(state.world.activeLaws.map((law) => law.id));
+        const seenLawKeys = new Set(state.world.activeLaws.map((law) => `${law.author}|${law.title}`));
+        const laws = [...state.world.activeLaws];
+        const addLaw = (law: LawEntry) => {
+          if (!law?.id || seenLawIds.has(law.id)) return;
+          const key = `${law.author}|${law.title}`;
+          if (seenLawKeys.has(key)) return;
+          seenLawIds.add(law.id);
+          seenLawKeys.add(key);
+          laws.unshift(law);
+        };
+        remoteLaws.forEach(addLaw);
+
+        return {
+          messages: mergedMessages.slice(-80),
+          world: normalizeWorld({ ...state.world, chronicles: stories, activeLaws: laws }),
+        };
+      });
+    }
+
+    const snapshot = snapshotForPersistence(useGameStore.getState());
+    void savePersistedAgents(snapshot.agents).catch((error) => console.error('[Supabase] initial agent save failed:', error));
+    void savePersistedGameState(snapshot).catch((error) => console.error('[Supabase] initial game state save failed:', error));
+
   });
 }
 

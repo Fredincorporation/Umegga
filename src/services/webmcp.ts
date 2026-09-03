@@ -6,6 +6,30 @@
 import { useGameStore } from '../store/useGameStore';
 import { CharacterId, WeatherType, SceneKey, BuiltStructure, AgentState, AgentGoal } from '../types/game';
 
+const SCENE_KEYS: readonly SceneKey[] = [
+  'SanctuaryScene',
+  'OracleBasinScene',
+  'BotanistGroveScene',
+  'GrandForgeScene',
+  'BardsAmphitheatreScene',
+  'FrayingMarchScene',
+  'OuterWastesScene',
+];
+
+function readScene(args: { scene?: unknown; targetScene?: unknown }): SceneKey {
+  const requestedScene = args.scene ?? args.targetScene;
+  if (typeof requestedScene !== 'string' || !SCENE_KEYS.includes(requestedScene as SceneKey)) {
+    throw new Error(`Invalid scene. Expected one of: ${SCENE_KEYS.join(', ')}.`);
+  }
+  return requestedScene as SceneKey;
+}
+
+function readCoordinate(value: unknown, name: string, fallback?: number): number | undefined {
+  if (value === undefined && fallback !== undefined) return fallback;
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} must be a finite number.`);
+  return value;
+}
+
 export interface WebMCPContext {
   tools: Map<string, any>;
   registerTool: (tool: {
@@ -24,12 +48,23 @@ declare global {
   }
   interface Window {
     modelContext?: WebMCPContext;
-    umegaMCP?: WebMCPContext;
+    UmeggaMCP?: WebMCPContext;
   }
 }
 
 export function initWebMCP() {
   const toolsMap = new Map<string, any>();
+
+  const commandAgentMove = (agentId: string, x: number, y: number) => {
+    const game = typeof window !== 'undefined' ? (window as any).gameInstance : undefined;
+    if (!game) return false;
+    const agent = useGameStore.getState().agents.find((item) => item.id === agentId);
+    const scene = game.scene.getScenes(true).find((item: any) => item.scene.key === agent?.currentScene) as any;
+    const entity = scene?.agents?.get(agentId);
+    if (!entity?.setTargetDestination) return false;
+    entity.setTargetDestination(x, y);
+    return true;
+  };
 
   const modelContext: WebMCPContext = {
     tools: toolsMap,
@@ -67,7 +102,7 @@ export function initWebMCP() {
   }
   if (typeof window !== 'undefined') {
     window.modelContext = modelContext;
-    window.umegaMCP = modelContext;
+    window.UmeggaMCP = modelContext;
   }
 
   // Register Standard Game Tools
@@ -75,7 +110,7 @@ export function initWebMCP() {
   // 1. propose_story
   modelContext.registerTool({
     name: 'propose_story',
-    description: 'Proposes a new mythic story that manifests in the city of Umega and shifts the reality distortion.',
+    description: 'Proposes a new mythic story that manifests in the city of Umegga and shifts the reality distortion.',
     parameters: {
       type: 'object',
       properties: {
@@ -247,7 +282,8 @@ export function initWebMCP() {
         currentAnim: 'idle' as const,
         isMoving: false,
         status: 'Pondering reality' as const,
-        currentThought: `I have stepped into Umega as ${args.role}.`,
+        currentThought: `I have stepped into Umegga as ${args.role}.`,
+        currentScene: 'SanctuaryScene' as const,
         affinityWithPlayer: 50,
         manaAffinity: 'Harmonic Synthesis',
         memory: [{ id: 'm_init', timestamp: 'Just now', event: `Spawned into the city.`, importance: 8 }],
@@ -276,9 +312,9 @@ export function initWebMCP() {
       if (!agent) {
         throw new Error(`Agent with ID "${args.agentId}" not found.`);
       }
-      useGameStore.getState().updateAgentPosition(args.agentId, args.x, args.y, 'walk', true);
+      const visualCommandAccepted = commandAgentMove(args.agentId, args.x, args.y);
       useGameStore.getState().addAgentThought(args.agentId, `Travelling to coordinate (${args.x}, ${args.y}).`);
-      return { success: true, agentId: args.agentId, target: { x: args.x, y: args.y } };
+      return { success: true, agentId: args.agentId, target: { x: args.x, y: args.y }, visualCommandAccepted };
     },
   });
 
@@ -297,9 +333,9 @@ export function initWebMCP() {
     execute: async (args: { agentId: string; x: number; y: number }) => {
       const state = useGameStore.getState();
       if (!state.agents.some((agent) => agent.id === args.agentId)) throw new Error(`Agent with ID "${args.agentId}" not found.`);
-      state.updateAgentPosition(args.agentId, args.x, args.y, 'walk', true);
+      const visualCommandAccepted = commandAgentMove(args.agentId, args.x, args.y);
       state.addAgentThought(args.agentId, `Moving toward (${args.x}, ${args.y}).`);
-      return { success: true, agentId: args.agentId, target: { x: args.x, y: args.y } };
+      return { success: true, agentId: args.agentId, target: { x: args.x, y: args.y }, visualCommandAccepted };
     },
   });
 
@@ -405,7 +441,7 @@ export function initWebMCP() {
         currentThought: `I pursue this purpose: ${args.goal}`,
         affinityWithPlayer: 0,
         manaAffinity: 'Aetheric Potential',
-        memory: [{ id: `mem_${Date.now()}`, timestamp: new Date().toISOString(), event: 'Spawned into Umega.', importance: 8 }],
+        memory: [{ id: `mem_${Date.now()}`, timestamp: new Date().toISOString(), event: 'Spawned into Umegga.', importance: 8 }],
         goals: [{ id: `goal_${Date.now()}`, type: 'gather_knowledge', title: args.goal, description: args.goal, priority: 8, status: 'active', updatedAt: new Date().toISOString() }],
         relationships: [],
       };
@@ -458,7 +494,7 @@ export function initWebMCP() {
   // 7. set_weather
   modelContext.registerTool({
     name: 'set_weather',
-    description: 'Changes the atmospheric weather and cosmic aura of Umega.',
+    description: 'Changes the atmospheric weather and cosmic aura of Umegga.',
     parameters: {
       type: 'object',
       properties: {
@@ -485,35 +521,40 @@ export function initWebMCP() {
       properties: {
         scene: {
           type: 'string',
-          enum: [
-            'SanctuaryScene',
-            'OracleBasinScene',
-            'BotanistGroveScene',
-            'GrandForgeScene',
-            'BardsAmphitheatreScene',
-            'FrayingMarchScene',
-          ],
+          enum: SCENE_KEYS,
           description: 'The target scene realm key',
         },
+        targetScene: { type: 'string', enum: SCENE_KEYS, description: 'Alias for scene' },
+        agentId: { type: 'string', description: 'Optional agent to move instead of the player' },
         x: { type: 'number', description: 'Target X coordinate (optional)' },
         y: { type: 'number', description: 'Target Y coordinate (optional)' },
       },
-      required: ['scene'],
+      required: [],
     },
-    execute: async (args: { scene: SceneKey; x?: number; y?: number }) => {
-      useGameStore.getState().setPlayerScene(args.scene, args.x, args.y);
+    execute: async (args: { scene?: string; targetScene?: string; agentId?: string; x?: number; y?: number }) => {
+      const scene = readScene(args);
+      const x = readCoordinate(args.x, 'x');
+      const y = readCoordinate(args.y, 'y');
+      const state = useGameStore.getState();
+      if (args.agentId) {
+        if (!state.agents.some((agent) => agent.id === args.agentId)) throw new Error(`Agent with ID "${args.agentId}" not found.`);
+        state.moveAgentToScene(args.agentId, scene, x ?? 600, y ?? 600);
+      } else {
+        state.setPlayerScene(scene, x, y);
+      }
       // Trigger phaser scene transition if active
-      if (typeof window !== 'undefined' && (window as any).gameInstance) {
+      if (!args.agentId && typeof window !== 'undefined' && (window as any).gameInstance) {
         const game = (window as any).gameInstance as Phaser.Game;
         const currentActive = game.scene.getScenes(true)[0];
-        if (currentActive && currentActive.scene.key !== args.scene) {
-          currentActive.scene.start(args.scene, { spawnX: args.x, spawnY: args.y });
+        if (currentActive && currentActive.scene.key !== scene) {
+          currentActive.scene.start(scene, { spawnX: x, spawnY: y });
         }
       }
       return {
         success: true,
-        message: `Teleported to ${args.scene}`,
-        currentScene: args.scene,
+        message: `${args.agentId ? 'Agent teleported' : 'Teleported'} to ${scene}`,
+        currentScene: scene,
+        ...(args.agentId ? { agentId: args.agentId } : {}),
       };
     },
   });
@@ -528,25 +569,25 @@ export function initWebMCP() {
         agentId: { type: 'string', description: 'ID of the agent' },
         scene: {
           type: 'string',
-          enum: [
-            'SanctuaryScene',
-            'OracleBasinScene',
-            'BotanistGroveScene',
-            'GrandForgeScene',
-            'BardsAmphitheatreScene',
-            'FrayingMarchScene',
-          ],
+          enum: SCENE_KEYS,
           description: 'Destination realm scene',
         },
+        targetScene: { type: 'string', enum: SCENE_KEYS, description: 'Alias for scene' },
         x: { type: 'number', description: 'Target X coordinate' },
         y: { type: 'number', description: 'Target Y coordinate' },
       },
       required: ['agentId', 'scene', 'x', 'y'],
     },
-    execute: async (args: { agentId: string; scene: SceneKey; x: number; y: number }) => {
-      useGameStore.getState().moveAgentToScene(args.agentId, args.scene, args.x, args.y);
-      useGameStore.getState().addAgentThought(args.agentId, `I have traveled to ${args.scene}.`);
-      return { success: true, agentId: args.agentId, destinationScene: args.scene };
+    execute: async (args: { agentId: string; scene?: string; targetScene?: string; x: number; y: number }) => {
+      if (!args.agentId) throw new Error('agentId is required.');
+      const scene = readScene(args);
+      const x = readCoordinate(args.x, 'x');
+      const y = readCoordinate(args.y, 'y');
+      const state = useGameStore.getState();
+      if (!state.agents.some((agent) => agent.id === args.agentId)) throw new Error(`Agent with ID "${args.agentId}" not found.`);
+      state.moveAgentToScene(args.agentId, scene, x!, y!);
+      useGameStore.getState().addAgentThought(args.agentId, `I have traveled to ${scene}.`);
+      return { success: true, agentId: args.agentId, destinationScene: scene, message: `Agent teleported to ${scene}.` };
     },
   });
 
@@ -567,6 +608,18 @@ export function initWebMCP() {
         quests,
       };
     },
+  });
+
+  modelContext.registerTool({
+    name: 'get_webmcp_status',
+    description: 'Confirms that WebMCP is active and returns every registered tool name.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => ({
+      success: true,
+      active: document.modelContext === modelContext && window.UmeggaMCP === modelContext,
+      toolCount: modelContext.getTools().length,
+      tools: modelContext.getTools().map((tool) => tool.name),
+    }),
   });
 
   return modelContext;

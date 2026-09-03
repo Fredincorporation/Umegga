@@ -29,7 +29,7 @@ const STORY_PRESETS: Array<{
     },
     {
       title: 'The Whispering Eclipse',
-      content: 'Veyra unlocked the nexus seal, aligning the twin moons over Umega. The city fell into a hypnotic silence where secret arcane truths became audible.',
+      content: 'Veyra unlocked the nexus seal, aligning the twin moons over Umegga. The city fell into a hypnotic silence where secret arcane truths became audible.',
       impact: 'Doubles psychic resonance of all agents and triggers cosmic divination.',
       effectType: 'celestial_eclipse',
     },
@@ -70,7 +70,7 @@ export const StoryProposalModal: React.FC = () => {
             </div>
             <div>
               <h2 className="font-fantasy font-bold text-lg text-sky-300">Weave a Mythic Chronicle</h2>
-              <p className="text-xs text-slate-400">Inscribe a story into the tapestry of Umega to reshape reality</p>
+              <p className="text-xs text-slate-400">Inscribe a story into the tapestry of Umegga to reshape reality</p>
             </div>
           </div>
           <button
@@ -129,7 +129,7 @@ export const StoryProposalModal: React.FC = () => {
             <textarea
               required
               rows={4}
-              placeholder="Describe what occurred, who witnessed it, and why this event permanently alters the reality of Umega..."
+              placeholder="Describe what occurred, who witnessed it, and why this event permanently alters the reality of Umegga..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="w-full bg-slate-800/80 border border-slate-700 focus:border-sky-400 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none resize-none"
