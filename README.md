@@ -96,6 +96,11 @@ to Supabase; realtime events are deduplicated before they enter local state.
 
 ## Production Considerations
 
+Vercel detects Vite automatically. Use `npm run build` as the build command and
+`dist` as the output directory. The optional local `agent-chat` process is not
+deployed with the static frontend; deploy it separately or replace
+`VITE_AGENT_CHAT_ENDPOINT` with the URL of a hosted backend.
+
 Before deploying publicly, add authentication and authorization policies to
 the Supabase tables, protect the AI endpoint with server-side rate limiting,
 and move long-lived world events into dedicated, indexed tables rather than
