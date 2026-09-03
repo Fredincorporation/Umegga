@@ -1,8 +1,8 @@
 -- Umegga chronicles: first-class table for woven stories so they are directly
 -- queryable and fetched explicitly, instead of living only inside the
--- Umegga_game_state JSON snapshot.
+-- umega_game_state JSON snapshot.
 
-create table if not exists public.Umegga_chronicles (
+create table if not exists public.umega_chronicles (
   id text primary key,
   title text not null,
   author text not null,
@@ -17,28 +17,28 @@ create table if not exists public.Umegga_chronicles (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create index if not exists Umegga_chronicles_created_at_idx
-  on public.Umegga_chronicles (created_at desc);
+create index if not exists umega_chronicles_created_at_idx
+  on public.umega_chronicles (created_at desc);
 
-alter table public.Umegga_chronicles enable row level security;
+alter table public.umega_chronicles enable row level security;
 
--- Anonymous-access policies mirroring the other Umegga_* tables. Replace with
+-- Anonymous-access policies mirroring the other umega_* tables. Replace with
 -- auth.uid()-scoped policies before exposing private worlds in production.
-drop policy if exists "Umegga_chronicles_public_read" on public.Umegga_chronicles;
-create policy "Umegga_chronicles_public_read"
-  on public.Umegga_chronicles for select
+drop policy if exists "umega_chronicles_public_read" on public.umega_chronicles;
+create policy "umega_chronicles_public_read"
+  on public.umega_chronicles for select
   using (true);
 
-drop policy if exists "Umegga_chronicles_public_insert" on public.Umegga_chronicles;
-create policy "Umegga_chronicles_public_insert"
-  on public.Umegga_chronicles for insert
+drop policy if exists "umega_chronicles_public_insert" on public.umega_chronicles;
+create policy "umega_chronicles_public_insert"
+  on public.umega_chronicles for insert
   with check (true);
 
-drop policy if exists "Umegga_chronicles_public_update" on public.Umegga_chronicles;
-create policy "Umegga_chronicles_public_update"
-  on public.Umegga_chronicles for update
+drop policy if exists "umega_chronicles_public_update" on public.umega_chronicles;
+create policy "umega_chronicles_public_update"
+  on public.umega_chronicles for update
   using (true)
   with check (true);
 
 -- Remove diagnostic rows created while verifying write access.
-delete from public.Umegga_world_events where id like 'diag_story_%';
+delete from public.umega_world_events where id like 'diag_story_%';

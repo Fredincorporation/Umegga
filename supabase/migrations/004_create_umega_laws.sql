@@ -1,8 +1,8 @@
 -- Umegga laws: first-class table for enacted laws so they are directly
 -- queryable and fetched explicitly, instead of living only inside the
--- Umegga_game_state JSON snapshot.
+-- umega_game_state JSON snapshot.
 
-create table if not exists public.Umegga_laws (
+create table if not exists public.umega_laws (
   id text primary key,
   title text not null,
   author text not null,
@@ -14,30 +14,30 @@ create table if not exists public.Umegga_laws (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create index if not exists Umegga_laws_created_at_idx
-  on public.Umegga_laws (created_at desc);
+create index if not exists umega_laws_created_at_idx
+  on public.umega_laws (created_at desc);
 
-alter table public.Umegga_laws enable row level security;
+alter table public.umega_laws enable row level security;
 
--- Anonymous-access policies mirroring the other Umegga_* tables. Replace with
+-- Anonymous-access policies mirroring the other umega_* tables. Replace with
 -- auth.uid()-scoped policies before exposing private worlds in production.
-drop policy if exists "Umegga_laws_public_read" on public.Umegga_laws;
-create policy "Umegga_laws_public_read"
-  on public.Umegga_laws for select
+drop policy if exists "umega_laws_public_read" on public.umega_laws;
+create policy "umega_laws_public_read"
+  on public.umega_laws for select
   using (true);
 
-drop policy if exists "Umegga_laws_public_insert" on public.Umegga_laws;
-create policy "Umegga_laws_public_insert"
-  on public.Umegga_laws for insert
+drop policy if exists "umega_laws_public_insert" on public.umega_laws;
+create policy "umega_laws_public_insert"
+  on public.umega_laws for insert
   with check (true);
 
-drop policy if exists "Umegga_laws_public_update" on public.Umegga_laws;
-create policy "Umegga_laws_public_update"
-  on public.Umegga_laws for update
+drop policy if exists "umega_laws_public_update" on public.umega_laws;
+create policy "umega_laws_public_update"
+  on public.umega_laws for update
   using (true)
   with check (true);
 
-drop policy if exists "Umegga_laws_public_delete" on public.Umegga_laws;
-create policy "Umegga_laws_public_delete"
-  on public.Umegga_laws for delete
+drop policy if exists "umega_laws_public_delete" on public.umega_laws;
+create policy "umega_laws_public_delete"
+  on public.umega_laws for delete
   using (true);

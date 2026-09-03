@@ -7,7 +7,7 @@ if (!url || !key) {
   process.exit(1);
 }
 
-for (const table of ['Umegga_game_state', 'Umegga_agents', 'Umegga_chat_messages', 'Umegga_world_events', 'Umegga_audio_state', 'Umegga_chronicles', 'Umegga_laws']) {
+for (const table of ['umega_game_state', 'umega_agents', 'umega_chat_messages', 'umega_world_events', 'umega_audio_state', 'umega_chronicles', 'umega_laws']) {
   const res = await fetch(`${url}/rest/v1/${table}?select=*&limit=1`, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
   });

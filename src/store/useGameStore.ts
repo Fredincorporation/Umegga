@@ -1111,13 +1111,13 @@ if (typeof window !== 'undefined') {
       const restored = remoteState as Partial<PersistedGameState>;
       useGameStore.setState({
         ...restored,
-        ...(restored.agents ? { agents: restored.agents.map(normalizeAgent) } : {}),
+        ...(Array.isArray(restored.agents) ? { agents: restored.agents.map(normalizeAgent) } : {}),
         ...(restored.world ? {
           world: normalizeWorld({ ...restored.world, chronicles: [], activeLaws: [] }),
         } : {}),
       });
     }
-    if (agents.length > 0 && !remoteState?.agents) useGameStore.setState({ agents: agents.map(normalizeAgent) });
+    if (agents.length > 0 && !Array.isArray(remoteState?.agents)) useGameStore.setState({ agents: agents.map(normalizeAgent) });
     if (remoteMCPLogs.length > 0) useGameStore.setState({ mcpLogs: remoteMCPLogs });
 
     // Merge Supabase-only state that supplements the game-state snapshot.

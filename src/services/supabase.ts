@@ -17,7 +17,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 
 export async function loadPersistedAgents(): Promise<AgentState[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('Umegga_agents').select('state');
+  const { data, error } = await supabase.from('umega_agents').select('state');
   if (error) {
     logSupabaseError('load agents', error);
     return [];
@@ -38,7 +38,7 @@ export async function loadPersistedAgents(): Promise<AgentState[]> {
 export async function loadChatMessages(limit = 80): Promise<ChatMessage[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from('Umegga_chat_messages')
+    .from('umega_chat_messages')
     .select('message')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -61,7 +61,7 @@ export async function loadChatMessages(limit = 80): Promise<ChatMessage[]> {
 export async function loadWorldEvents(limit = 200): Promise<Array<{ id: string; event_type: string; payload: any }>> {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from('Umegga_world_events')
+    .from('umega_world_events')
     .select('id, event_type, payload')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -81,7 +81,7 @@ export async function loadWorldEvents(limit = 200): Promise<Array<{ id: string; 
 export async function loadMCPLogs(limit = 30): Promise<Array<{ id: string; tool: string; args: any; result: any; timestamp: string }>> {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from('Umegga_world_events')
+    .from('umega_world_events')
     .select('payload')
     .eq('event_type', 'mcp_call')
     .order('created_at', { ascending: false })
@@ -101,7 +101,7 @@ export interface AudioStateRow {
 export async function loadChronicles(limit = 200): Promise<StoryEntry[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from('Umegga_chronicles')
+    .from('umega_chronicles')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -128,7 +128,7 @@ export async function loadChronicles(limit = 200): Promise<StoryEntry[]> {
 
 export async function saveChronicle(story: StoryEntry): Promise<void> {
   if (!supabase || !story?.id) return;
-  const { error } = await supabase.from('Umegga_chronicles').upsert(
+  const { error } = await supabase.from('umega_chronicles').upsert(
     {
       id: story.id,
       title: story.title,
@@ -151,7 +151,7 @@ export async function saveChronicle(story: StoryEntry): Promise<void> {
 export async function loadLaws(limit = 200): Promise<LawEntry[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from('Umegga_laws')
+    .from('umega_laws')
     .select('*')
     .eq('active', true)
     .order('created_at', { ascending: false })
@@ -176,7 +176,7 @@ export async function loadLaws(limit = 200): Promise<LawEntry[]> {
 
 export async function saveLaw(law: LawEntry): Promise<void> {
   if (!supabase || !law?.id) return;
-  const { error } = await supabase.from('Umegga_laws').upsert(
+  const { error } = await supabase.from('umega_laws').upsert(
     {
       id: law.id,
       title: law.title,
@@ -196,7 +196,7 @@ export async function saveLaw(law: LawEntry): Promise<void> {
 export async function loadAudioState(): Promise<AudioStateRow | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
-    .from('Umegga_audio_state')
+    .from('umega_audio_state')
     .select('track_index, position_seconds')
     .eq('id', 'global')
     .maybeSingle();
@@ -206,7 +206,7 @@ export async function loadAudioState(): Promise<AudioStateRow | null> {
 
 export async function saveAudioState(state: AudioStateRow): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase.from('Umegga_audio_state').upsert(
+  const { error } = await supabase.from('umega_audio_state').upsert(
     { id: 'global', ...state, updated_at: new Date().toISOString() },
     { onConflict: 'id' },
   );
@@ -215,7 +215,7 @@ export async function saveAudioState(state: AudioStateRow): Promise<void> {
 
 export async function savePersistedAgents(agents: AgentState[]): Promise<void> {
   if (!supabase || agents.length === 0) return;
-  const { error } = await supabase.from('Umegga_agents').upsert(
+  const { error } = await supabase.from('umega_agents').upsert(
     agents.map((agent) => ({ id: agent.id, state: agent, updated_at: new Date().toISOString() })),
     { onConflict: 'id' },
   );
@@ -224,14 +224,14 @@ export async function savePersistedAgents(agents: AgentState[]): Promise<void> {
 
 export async function loadPersistedGameState(): Promise<Record<string, unknown> | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('Umegga_game_state').select('state').eq('id', 'global').maybeSingle();
+  const { data, error } = await supabase.from('umega_game_state').select('state').eq('id', 'global').maybeSingle();
   if (error || !data?.state || typeof data.state !== 'object') return null;
   return data.state as Record<string, unknown>;
 }
 
 export async function savePersistedGameState(state: Record<string, unknown>): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase.from('Umegga_game_state').upsert(
+  const { error } = await supabase.from('umega_game_state').upsert(
     { id: 'global', state, updated_at: new Date().toISOString() },
     { onConflict: 'id' },
   );
@@ -240,7 +240,7 @@ export async function savePersistedGameState(state: Record<string, unknown>): Pr
 
 export async function saveChatMessage(message: ChatMessage): Promise<void> {
   if (!supabase || !message?.id) return;
-  const { error } = await supabase.from('Umegga_chat_messages').upsert(
+  const { error } = await supabase.from('umega_chat_messages').upsert(
     { id: message.id, message, created_at: new Date().toISOString() },
     { onConflict: 'id' },
   );
@@ -249,7 +249,7 @@ export async function saveChatMessage(message: ChatMessage): Promise<void> {
 
 export async function saveWorldEvent(eventType: string, payload: unknown, id = `${eventType}_${Date.now()}`): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase.from('Umegga_world_events').upsert(
+  const { error } = await supabase.from('umega_world_events').upsert(
     { id, event_type: eventType, payload, created_at: new Date().toISOString() },
     { onConflict: 'id' },
   );
