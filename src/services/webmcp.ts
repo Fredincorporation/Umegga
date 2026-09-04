@@ -25,7 +25,10 @@ function readScene(args: { scene?: unknown; targetScene?: unknown }): SceneKey {
 }
 
 function readCoordinate(value: unknown, name: string, fallback?: number): number | undefined {
-  if (value === undefined && fallback !== undefined) return fallback;
+  if (value === undefined || value === null) {
+    if (fallback !== undefined) return fallback;
+    return undefined; // optional coordinate
+  }
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} must be a finite number.`);
   return value;
 }
@@ -71,6 +74,7 @@ export function initWebMCP() {
     registerTool: (tool) => {
       toolsMap.set(tool.name, tool);
       console.log(`[WebMCP] Registered tool: ${tool.name}`);
+      mirrorToolToStandardContext(tool);
     },
     getTools: () => {
       return Array.from(toolsMap.values()).map(({ name, description, parameters }) => ({
@@ -96,7 +100,10 @@ export function initWebMCP() {
     },
   };
 
-  // Attach to document and window per WebMCP specification
+  // Attach to document and window per WebMCP specification, and mirror every
+  // tool onto the standard navigator.modelContext API so Chrome's built-in
+  // WebMCP implementation (chrome://flags/#enable-webmcp-testing, Chrome 149+)
+  // can discover and invoke the same tools.
   if (typeof document !== 'undefined') {
     document.modelContext = modelContext;
   }
@@ -104,6 +111,30 @@ export function initWebMCP() {
     window.modelContext = modelContext;
     window.UmeggaMCP = modelContext;
   }
+
+  interface StandardModelContext {
+    registerTool?: (tool: any) => any;
+  }
+  const standardContext =
+    typeof navigator !== 'undefined'
+      ? (navigator as unknown as { modelContext?: StandardModelContext }).modelContext
+      : undefined;
+
+  const mirrorToolToStandardContext = (tool: { name: string; description: string; parameters?: any; execute: (args: any) => any }) => {
+    if (!standardContext || typeof standardContext.registerTool !== 'function') return;
+    try {
+      standardContext.registerTool({
+        name: tool.name,
+        title: tool.name,
+        description: tool.description,
+        inputSchema: tool.parameters ?? { type: 'object', properties: {} },
+        execute: async ({ arguments: args }: { arguments?: any }) => tool.execute(args ?? {}),
+      });
+      console.log(`[WebMCP] Mirrored tool to navigator.modelContext: ${tool.name}`);
+    } catch (err) {
+      console.warn(`[WebMCP] Could not mirror tool "${tool.name}" to navigator.modelContext:`, err);
+    }
+  };
 
   // Register Standard Game Tools
 
@@ -583,6 +614,7 @@ export function initWebMCP() {
       const scene = readScene(args);
       const x = readCoordinate(args.x, 'x');
       const y = readCoordinate(args.y, 'y');
+      if (x === undefined || y === undefined) throw new Error('x and y must be finite numbers.');
       const state = useGameStore.getState();
       if (!state.agents.some((agent) => agent.id === args.agentId)) throw new Error(`Agent with ID "${args.agentId}" not found.`);
       state.moveAgentToScene(args.agentId, scene, x!, y!);
