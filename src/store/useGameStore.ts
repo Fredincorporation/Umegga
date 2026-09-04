@@ -33,6 +33,7 @@ import {
 import { generateAgentReply } from '../services/agentDialogue';
 import { PERSONALITY_PROFILES } from '../constants/characters';
 import { loadChronicles, loadChatMessages, loadLaws, loadMCPLogs, loadPersistedAgents, loadPersistedGameState, loadWorldEvents, realtimeBridge, saveChatMessage, saveChronicle, saveLaw, savePersistedAgents, savePersistedGameState, saveWorldEvent, supabase } from '../services/supabase';
+import { getChatSessionId } from '../services/chatSession';
 
 interface GameStore {
   // Player
@@ -1046,6 +1047,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     addMessage: (msg) => {
       const newMsg: ChatMessage = {
         ...msg,
+        sessionId: getChatSessionId(),
         id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       };

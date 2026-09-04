@@ -216,6 +216,8 @@ export interface ChatMessage {
   timestamp: string;
   type: 'chat' | 'system' | 'story' | 'law' | 'agent' | 'mcp';
   channel?: 'conversation';
+  /** Browser session that produced this message; chat is only visible within it. */
+  sessionId?: string;
 }
 
 export interface RemotePlayer {

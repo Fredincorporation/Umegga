@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { AgentState, ChatMessage, StoryEntry, LawEntry } from '../types/game';
+import { getChatSessionId } from './chatSession';
 
 // Check for environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -37,9 +38,11 @@ export async function loadPersistedAgents(): Promise<AgentState[]> {
 
 export async function loadChatMessages(limit = 80): Promise<ChatMessage[]> {
   if (!supabase) return [];
+  const sessionId = getChatSessionId();
   const { data, error } = await supabase
     .from('umega_chat_messages')
     .select('message')
+    .or(`message->>sessionId.eq.${sessionId},message->>sessionId.is.null`)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) {
@@ -300,9 +303,13 @@ class RealtimeBridge {
     if (!payload || !payload.type) return;
 
     switch (payload.type) {
-      case 'CHAT_MESSAGE':
+      case 'CHAT_MESSAGE': {
+        // Chat is session-private: ignore messages from other browsers.
+        const data = payload.data as ChatMessage | undefined;
+        if (data?.sessionId && data.sessionId !== getChatSessionId()) break;
         this.messageListeners.forEach((fn) => fn(payload.data));
         break;
+      }
       case 'STORY_PROPOSED':
         this.storyListeners.forEach((fn) => fn(payload.data));
         break;

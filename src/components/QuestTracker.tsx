@@ -11,7 +11,7 @@ export const QuestTracker: React.FC = () => {
   const dailyCompleted = dailyQuests.filter((quest) => quest.completed).length;
 
   return (
-    <div className="fixed top-36 left-3 z-30 pointer-events-auto max-w-xs md:max-w-sm">
+    <div className="fixed top-36 left-3 z-20 pointer-events-auto max-w-xs md:max-w-sm">
       <div className="bg-slate-900/90 backdrop-blur-xl border border-sky-500/30 rounded-2xl shadow-2xl p-3 text-slate-100 transition-all">
         {/* Tracker Header */}
         <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 mb-2">
