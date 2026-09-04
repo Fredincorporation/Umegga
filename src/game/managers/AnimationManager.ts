@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CharacterId, AnimationType } from '../../types/game';
+import { assetUrl } from '../../config/assets';
 
 /**
  * Detailed Animation Frame Rules for each character and action.
@@ -114,7 +115,7 @@ export class AnimationManager {
         }
 
         const frameKey = `${characterId}_${animType}_${String(i + 1).padStart(3, '0')}`;
-        const filePath = `/characters/${folder}/${animType}/${filename}`;
+        const filePath = assetUrl(`/characters/${folder}/${animType}/${filename}`);
 
         scene.load.image(frameKey, filePath);
       }

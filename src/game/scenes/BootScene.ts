@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import { assetUrl } from '../../config/assets';
 import { AnimationManager } from '../managers/AnimationManager';
 import { CharacterId } from '../../types/game';
 import { audioManager } from '../../services/AudioManager';
@@ -107,38 +107,38 @@ export class BootScene extends Phaser.Scene {
       percentText.destroy();
     });
 
-    this.load.image('loading-screen', '/loading-screen.png');
+    this.load.image('loading-screen', assetUrl('/loading-screen.png'));
 
     // 2. Preload Map Tiles and Props
-    this.load.image('tile_cobble', '/tiles/cobble.png');
-    this.load.image('tile_grass', '/tiles/grass.png');
-    this.load.image('tile_water', '/tiles/water.png');
-    this.load.image('prop_monument', '/tiles/monument.png');
+    this.load.image('tile_cobble', assetUrl('/tiles/cobble.png'));
+    this.load.image('tile_grass', assetUrl('/tiles/grass.png'));
+    this.load.image('tile_water', assetUrl('/tiles/water.png'));
+    this.load.image('prop_monument', assetUrl('/tiles/monument.png'));
 
     // 3. Preload District Environments (Backgrounds & Tiles)
     const envPrefixes = ['sanctuary', 'oracle', 'grove', 'forge', 'amphitheatre', 'march'];
-    const envBgs: Record<string, string> = {
+    const envBgs: Record<string, string> = Object.fromEntries(Object.entries({
       sanctuary: '/environment/sanctuary_bg.png',
       oracle: '/environment/oracle_basin_bg.png',
       grove: '/environment/botanist_grove_bg.png',
       forge: '/environment/grand_forge_bg.png',
       amphitheatre: '/environment/bards_amphitheatre_bg.png',
       march: '/environment/fraying_march_bg.png',
-    };
+    }).map(([k, v]) => [k, assetUrl(v)] as const));
 
     envPrefixes.forEach((env) => {
       this.load.image(`env_bg_${env}`, envBgs[env]);
-      this.load.image(`tile_cobble_${env}`, `/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_cobble.png`);
-      this.load.image(`tile_grass_${env}`, `/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_grass.png`);
+      this.load.image(`tile_cobble_${env}`, assetUrl(`/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_cobble.png`));
+      this.load.image(`tile_grass_${env}`, assetUrl(`/environment/${env === 'oracle' ? 'oracle' : env === 'grove' ? 'grove' : env === 'forge' ? 'forge' : env === 'amphitheatre' ? 'amphitheatre' : env === 'march' ? 'march' : 'sanctuary'}_grass.png`));
     });
 
     // Special Environment Features
-    this.load.image('env_city_plaza', '/environment/city_plaza.png');
-    this.load.image('env_stone_pathway', '/environment/stone_pathway.jpg');
-    this.load.image('env_heaven', '/environment/heaven.jpg');
-    this.load.image('env_mystical_garden', '/environment/mystical_garden.png');
-    this.load.image('env_outer', '/environment/outer.png');
-    this.load.image('env_clifs', '/environment/clifs.png');
+    this.load.image('env_city_plaza', assetUrl('/environment/city_plaza.png'));
+    this.load.image('env_stone_pathway', assetUrl('/environment/stone_pathway.jpg'));
+    this.load.image('env_heaven', assetUrl('/environment/heaven.jpg'));
+    this.load.image('env_mystical_garden', assetUrl('/environment/mystical_garden.png'));
+    this.load.image('env_outer', assetUrl('/environment/outer.png'));
+    this.load.image('env_clifs', assetUrl('/environment/clifs.png'));
 
     // 4. Preload Buildings
     const buildings = [
@@ -147,7 +147,7 @@ export class BootScene extends Phaser.Scene {
       'biomancer_lab', 'magma_furnace', 'star_smelter', 'echo_pavilion', 'bard_academy'
     ];
     buildings.forEach((b) => {
-      this.load.image(`bld_${b}`, `/buildings/${b}.png`);
+      this.load.image(`bld_${b}`, assetUrl(`/buildings/${b}.png`));
     });
 
     // 5. Preload Props & Portals
@@ -160,7 +160,7 @@ export class BootScene extends Phaser.Scene {
       'rune_stone', 'forge_anvil'
     ];
     props.forEach((p) => {
-      this.load.image(`prop_${p}`, `/props/${p}.png`);
+      this.load.image(`prop_${p}`, assetUrl(`/props/${p}.png`));
     });
 
     // 6. Preload all supported character frame sequences

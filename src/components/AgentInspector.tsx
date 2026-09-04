@@ -108,8 +108,8 @@ export const AgentInspector: React.FC = () => {
 
       {/* Content Scrollable */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
-        {/* Primary messenger thread */}
-        <section className="bg-slate-950/70 border border-sky-500/30 rounded-2xl p-3 flex flex-col min-h-64">
+        {/* Primary messenger thread - fixed height so it never shifts when messages are added */}
+        <section className="bg-slate-950/70 border border-sky-500/30 rounded-2xl p-3 flex flex-col h-96 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5 text-sky-300 font-semibold uppercase tracking-wider text-[10px]">
               <MessageSquare className="w-3 h-3" />
@@ -117,7 +117,7 @@ export const AgentInspector: React.FC = () => {
             </div>
             <span className="text-[10px] text-slate-500">{conversationMessages.length} messages</span>
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
             {conversationMessages.length === 0 && (
               <div className="py-8 text-center text-slate-500">Start a conversation with {agent.name}.</div>
             )}

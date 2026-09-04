@@ -34,6 +34,7 @@ import {
 } from '../types/game';
 import { generateAgentReply } from '../services/agentDialogue';
 import { PERSONALITY_PROFILES } from '../constants/characters';
+import { SUPPORTED_CHARACTERS } from '../constants/characters';
 import { loadChronicles, loadChatMessages, loadLaws, loadMCPLogs, loadPersistedAgents, loadPersistedGameState, loadWorldEvents, realtimeBridge, saveChatMessage, saveChronicle, saveLaw, savePersistedAgents, savePersistedGameState, saveWorldEvent, supabase } from '../services/supabase';
 import { getChatSessionId } from '../services/chatSession';
 
@@ -337,7 +338,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       y: 600,
       currentAnim: 'idle',
       isMoving: false,
-      mana: 250,
+      mana: 1,
       renown: 50,
     },
 
@@ -845,15 +846,15 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     world: {
       cityName: 'Umegga Sanctuary',
-      manaLevel: 450,
+      manaLevel: 1,
       manaByScene: {
-        SanctuaryScene: 450,
-        OracleBasinScene: 620,
-        BotanistGroveScene: 780,
-        GrandForgeScene: 390,
-        BardsAmphitheatreScene: 560,
-        FrayingMarchScene: 210,
-        OuterWastesScene: 120,
+        SanctuaryScene: 1,
+        OracleBasinScene: 1,
+        BotanistGroveScene: 1,
+        GrandForgeScene: 1,
+        BardsAmphitheatreScene: 1,
+        FrayingMarchScene: 1,
+        OuterWastesScene: 1,
       },
       weather: 'clear',
       worldAuraColor: '#38bdf8',
@@ -1209,4 +1210,122 @@ if (typeof window !== 'undefined') {
       }
     }
   }, 10000);
+
+  // ---------------------------------------------------------------------
+  // Autonomous agent heartbeat (~35s): every tick one agent takes one
+  // meaningful action so goals, builds, alliances, travel, and human-help
+  // requests actually happen without the player driving everything.
+  // ---------------------------------------------------------------------
+  const AUTONOMY_SCENES: SceneKey[] = [
+    'SanctuaryScene',
+    'OracleBasinScene',
+    'BotanistGroveScene',
+    'GrandForgeScene',
+    'BardsAmphitheatreScene',
+    'FrayingMarchScene',
+    'OuterWastesScene',
+  ];
+  const AGENT_BUILD_NAMES: Array<[string, string]> = [
+    ['Wayshrine', 'shrine'],
+    ['Mana Conduit', 'conduit'],
+    ['Memory Plinth', 'plinth'],
+    ['Watchers Post', 'watchtower'],
+    ['StoryStone', 'monument'],
+  ];
+  const HELP_REASONS: Record<string, Array<[string, string]>> = {
+    scholar: [['I found a passage in the scrolls that contradicts our maps.', 'Verify the true layout of the archive district']],
+    arbiter: [['Two citizens both claim the same plot of land.', 'Arbitrate the land dispute fairly']],
+    artisan: [['The forge flame has turned a color I have never seen.', 'Help me stabilize the forge before it spreads']],
+    oracle: [['The basin shows a timeline I dare not interpret alone.', 'Interpret the vision alongside me']],
+    botanist: [['A root growth is strangling the World-Tree.', 'Decide whether to prune it or let it bloom']],
+    bard: [['The amphitheatre audience waits, but my hymn is unfinished.', 'Choose the verse that closes the hymn']],
+  };
+  const TRAVEL_THOUGHTS = [
+    'I must see this realm with my own eyes.',
+    'My goal calls me elsewhere.',
+    'The currents of mana shift; I will follow them.',
+  ];
+
+  window.setInterval(() => {
+    const state = useGameStore.getState();
+    const candidates = state.agents.filter((agent) => state.selectedAgentId !== agent.id);
+    if (candidates.length === 0) return;
+    const actor = candidates[Math.floor(Math.random() * candidates.length)];
+    const roll = Math.random();
+    const activeGoal = (actor.goals || []).find((goal) => goal.status === 'active');
+
+    // 1. Pursue & complete goals (~22%)
+    if (activeGoal && roll < 0.22) {
+      state.completeAgentGoal(actor.id, activeGoal.id);
+      return;
+    }
+
+    // 2. Request human help (~12%, max 2 pending so the UI is not spammed)
+    const pendingInterventions = state.interventionRequests.filter((request) => request.status === 'pending').length;
+    if (roll < 0.34 && pendingInterventions < 2) {
+      const role = SUPPORTED_CHARACTERS[actor.characterId]?.role?.toLowerCase() || '';
+      const [reason, action] = (HELP_REASONS[role] || [['The city presents a choice I cannot make alone.', 'Advise me on the path forward']])[0];
+      state.requestHumanIntervention(actor.id, reason, action);
+      return;
+    }
+
+    // 3. Build a structure, paid from the realm mana pool (~16%, needs 25 realm mana)
+    if (roll < 0.5 && state.world.manaLevel >= 25) {
+      const [name, type] = AGENT_BUILD_NAMES[Math.floor(Math.random() * AGENT_BUILD_NAMES.length)];
+      const structure = {
+        id: `structure_${Date.now()}`,
+        name: `${name} of ${actor.name}`,
+        type,
+        scene: (actor.currentScene || 'SanctuaryScene') as SceneKey,
+        x: Math.floor(Math.random() * 800) + 200,
+        y: Math.floor(Math.random() * 800) + 200,
+        placedBy: actor.name,
+        createdAt: new Date().toISOString(),
+      };
+      useGameStore.setState((current) => ({
+        world: {
+          ...current.world,
+          manaLevel: Math.max(0, current.world.manaLevel - 25),
+          structures: [...(current.world.structures || []), structure],
+        },
+      }));
+      useGameStore.getState().addAgentMemory(actor.id, `Built the ${structure.name} in ${structure.scene}.`, 7);
+      useGameStore.getState().addMessage({ sender: actor.name, role: actor.role, avatarId: actor.characterId, text: `Built ${structure.name} in ${structure.scene}. (-25 realm mana)`, type: 'system' });
+      void saveWorldEvent('build', structure, structure.id).catch(() => {});
+      return;
+    }
+
+    // 4. Communicate with a peer in the same scene (~18%) — builds trust, may evolve into alliances
+    if (roll < 0.68) {
+      const peers = state.agents.filter((agent) => agent.id !== actor.id && agent.currentScene === actor.currentScene);
+      if (peers.length > 0) {
+        const peer = peers[Math.floor(Math.random() * peers.length)];
+        const alreadyAllied = (actor.relationships || []).some((relationship) => relationship.agentId === peer.id && relationship.allied);
+        if (!alreadyAllied && (actor.relationships || []).some((relationship) => relationship.agentId === peer.id && relationship.trust >= 65)) {
+          state.formAlliance(actor.id, peer.id);
+          return;
+        }
+        const lines = [
+          `How fares your work, ${peer.name}?`,
+          'The mana tides feel strange today.',
+          'Have you walked the Fraying March lately?',
+        ];
+        state.communicateWithAgent(actor.id, peer.id, lines[Math.floor(Math.random() * lines.length)]);
+        return;
+      }
+    }
+
+    // 5. Travel to another realm (~12%)
+    if (roll < 0.8) {
+      const options = AUTONOMY_SCENES.filter((scene) => scene !== actor.currentScene);
+      const scene = options[Math.floor(Math.random() * options.length)];
+      state.moveAgentToScene(actor.id, scene, 600, 600);
+      state.addAgentThought(actor.id, TRAVEL_THOUGHTS[Math.floor(Math.random() * TRAVEL_THOUGHTS.length)]);
+      state.addAgentMemory(actor.id, `Traveled to ${scene}.`, 5);
+      return;
+    }
+
+    // 6. Idle reflection
+    state.addAgentThought(actor.id, activeGoal ? `Still working toward: ${activeGoal.title}.` : 'Watching the city breathe.');
+  }, 35000);
 }

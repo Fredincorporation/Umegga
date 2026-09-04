@@ -1,6 +1,7 @@
 import { loadAudioState, saveAudioState } from './supabase';
+import { assetUrl } from '../config/assets';
 
-const TRACK_URLS = ['/music/1.ogg', '/music/2.ogg'];
+const TRACK_URLS = ['/music/1.ogg', '/music/2.ogg'].map(assetUrl);
 const DEFAULT_VOLUME = 0.45;
 
 class AudioManager {
