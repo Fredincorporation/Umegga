@@ -130,6 +130,16 @@ export function initWebMCP() {
     safeAttach(window, 'modelContext', modelContext);
     safeAttach(window, 'UmeggaMCP', modelContext);
   }
+  // Attach to navigator as well — the WebMCP discovery spec (and most MCP
+  // detectors) probe navigator.modelContext first. Only do this if a native
+  // implementation isn't already there, so we never clobber Chrome's own API.
+  if (typeof navigator !== 'undefined') {
+    let hasNative = false;
+    try {
+      hasNative = !!(navigator as unknown as { modelContext?: unknown }).modelContext;
+    } catch { /* ignore */ }
+    if (!hasNative) safeAttach(navigator as unknown as Record<string, unknown>, 'modelContext', modelContext);
+  }
 
   // If the native WebMCP API appears later (e.g. the user enabled the Chrome
   // flag without a restart, or an extension injects it), re-mirror every tool
