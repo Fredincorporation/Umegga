@@ -1,0 +1,24 @@
+# Cloudflare Pages headers — long-cache immutable game assets
+/*
+  Access-Control-Allow-Origin: *
+
+/buildings/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/props/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/environment/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/tiles/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/characters/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/music/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/loading-screen.png
+  Cache-Control: public, max-age=31536000, immutable

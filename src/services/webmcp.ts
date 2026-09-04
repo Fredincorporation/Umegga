@@ -131,6 +131,29 @@ export function initWebMCP() {
     safeAttach(window, 'UmeggaMCP', modelContext);
   }
 
+  // If the native WebMCP API appears later (e.g. the user enabled the Chrome
+  // flag without a restart, or an extension injects it), re-mirror every tool
+  // that was registered on our shim up to that point.
+  const mirrorAllToStandardContext = () => {
+    toolsMap.forEach((tool) => mirrorToolToStandardContext(tool));
+  };
+  let nativePollCount = 0;
+  const nativePoll = setInterval(() => {
+    nativePollCount += 1;
+    try {
+      const ctx = (navigator as unknown as { modelContext?: StandardModelContext }).modelContext;
+      if (ctx && typeof ctx.registerTool === 'function' && ctx !== (standardContext as unknown)) {
+        standardContext = ctx;
+        console.log('[WebMCP] Native navigator.modelContext appeared — mirroring existing tools.');
+        mirrorAllToStandardContext();
+        clearInterval(nativePoll);
+      }
+    } catch {
+      /* keep polling quietly */
+    }
+    if (nativePollCount > 30) clearInterval(nativePoll); // stop after ~30s
+  }, 1000);
+
   interface StandardModelContext {
     registerTool?: (tool: any) => any;
   }
@@ -145,6 +168,15 @@ export function initWebMCP() {
   } catch (err) {
     console.warn('[WebMCP] navigator.modelContext is not accessible:', err);
     standardContext = undefined;
+  }
+  if (standardContext && typeof standardContext.registerTool === 'function') {
+    console.log('[WebMCP] Native navigator.modelContext detected — tools will be mirrored to Chrome WebMCP.');
+  } else {
+    console.log(
+      '[WebMCP] Native navigator.modelContext NOT available. ' +
+        'Enable chrome://flags/#enable-webmcp-testing (Chrome 140+) and reload. ' +
+        'Tools are still available via window.UmeggaMCP / document.modelContext.'
+    );
   }
 
   const mirrorToolToStandardContext = (tool: { name: string; description: string; parameters?: any; execute: (args: any) => any }) => {
