@@ -22,6 +22,7 @@ Phaser game canvas with a React interface and Supabase-backed persistence.
 - Tailwind CSS and Lucide React for the interface
 - WebMCP for model-driven tools
 - Groq-compatible OpenAI chat completions for agent dialogue
+- Cloudflare Worker for the standalone agent-chat backend
 
 ## Project Layout
 
@@ -33,6 +34,7 @@ src/services/       AI dialogue, persistence, audio, and WebMCP integrations
 src/store/          Zustand game state and domain actions
 scripts/            Asset generation, verification, and local service scripts
 supabase/           Database migrations
+worker/             Cloudflare Worker backend for agent dialogue
 ```
 
 Character animation frames live at
@@ -48,10 +50,14 @@ Torren, Kaelen, Veyra, Orthas, Sylis, Lira, Elder Maelon, and Vance.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and provide the Supabase settings. The local
-agent-chat service reads `AI_API_KEY`, `AI_API_URL`, `AI_MODEL`, and
-`AGENT_CHAT_PORT`. The browser uses `VITE_AGENT_CHAT_ENDPOINT` to reach that
-service through the Vite development proxy.
+Copy `.env.example` to `.env` and provide the Supabase settings. The agent-chat
+backend reads `AI_API_KEY`, `AI_API_URL`, and `AI_MODEL`. For local development
+these live in `worker/.dev.vars` (gitignored, see `.env.example`); for deployed
+Workers, set them as Wrangler secrets with
+`npx wrangler secret put AI_API_KEY`. The browser uses `VITE_AGENT_CHAT_ENDPOINT`
+to reach the service — in development this is proxied by Vite to the wrangler
+dev server on port 3011, and in production it points at your deployed worker
+URL (e.g. `https://umegga-agent-chat.<account>.workers.dev/api/agent-chat`).
 
 For Vercel, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under the
 Production environment variables, then redeploy. Apply the SQL migrations to
@@ -72,19 +78,25 @@ npm install
 npm run dev
 ```
 
-In a second terminal, start the AI dialogue service:
+In a second terminal, start the agent-chat Cloudflare Worker locally:
 
 ```bash
-npm run agent-chat
+npm run worker:dev
 ```
 
-The application runs at `http://localhost:3000` and the local dialogue
-endpoint listens on `http://localhost:3001/api/agent-chat`.
+The application runs at `http://localhost:3000` and the Vite development proxy
+forwards `/api/agent-chat` to the worker at `http://localhost:3011`.
+
+A legacy Node-based dialogue service (`npm run agent-chat`) is still available
+and listens on `http://localhost:3001/api/agent-chat`, but the Cloudflare
+Worker is the recommended backend.
 
 ## Common Commands
 
 ```bash
 npm run build                         # Type-check and create a production build
+npm run worker:dev                    # Run the agent-chat worker locally
+npm run worker:deploy                 # Deploy the agent-chat worker to Cloudflare
 node scripts/generate-characters.js  # Generate character sprite frames
 node scripts/verify-all.js            # Verify the local server and assets
 ```
@@ -106,9 +118,11 @@ to Supabase; realtime events are deduplicated before they enter local state.
 ## Production Considerations
 
 Vercel detects Vite automatically. Use `npm run build` as the build command and
-`dist` as the output directory. The optional local `agent-chat` process is not
-deployed with the static frontend; deploy it separately or replace
-`VITE_AGENT_CHAT_ENDPOINT` with the URL of a hosted backend.
+`dist` as the output directory. The `agent-chat` backend is a standalone Cloudflare Worker, deployed with
+`npm run worker:deploy`. Set `VITE_AGENT_CHAT_ENDPOINT` to the deployed
+worker URL (for example
+`https://umegga-agent-chat.<account>.workers.dev/api/agent-chat`) so the
+static frontend can reach it.
 
 Before deploying publicly, add authentication and authorization policies to
 the Supabase tables, protect the AI endpoint with server-side rate limiting,
