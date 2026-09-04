@@ -13,3 +13,9 @@ dist/
 # Local logs and temporary files
 *.log
 .temp/
+
+worker/.dev.vars
+
+.wrangler-state/
+
+worker/.wrangler/

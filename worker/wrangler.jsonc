@@ -1,0 +1,9 @@
+{
+  "name": "umegga-agent-chat",
+  "main": "index.js",
+  "compatibility_date": "2025-01-01",
+  "persistTo": "../.wrangler-state",
+  "dev": {
+    "port": 3011
+  }
+}
