@@ -19,8 +19,13 @@ export const App: React.FC = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
-    // Initialize WebMCP tools registry on document.modelContext & window.UmeggaMCP
-    initWebMCP();
+    // Initialize WebMCP tools registry on document.modelContext & window.UmeggaMCP.
+    // Guarded so an experimental/flagged browser API can never crash the app.
+    try {
+      initWebMCP();
+    } catch (err) {
+      console.error('[WebMCP] Initialization failed; continuing without WebMCP tools:', err);
+    }
   }, []);
 
   return (

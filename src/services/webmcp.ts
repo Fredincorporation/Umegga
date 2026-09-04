@@ -104,21 +104,48 @@ export function initWebMCP() {
   // tool onto the standard navigator.modelContext API so Chrome's built-in
   // WebMCP implementation (chrome://flags/#enable-webmcp-testing, Chrome 149+)
   // can discover and invoke the same tools.
-  if (typeof document !== 'undefined') {
-    document.modelContext = modelContext;
-  }
+  //
+  // IMPORTANT: with the Chrome flag enabled, document/window.modelContext may
+  // be implemented as read-only native getters. A bare assignment would throw
+  // a TypeError in strict-mode module code and crash React's render tree
+  // (blank page). All global attachment is therefore guarded.
+  const safeAttach = (target: any, key: string, value: unknown) => {
+    if (!target) return false;
+    try {
+      target[key] = value;
+      return true;
+    } catch {
+      try {
+        Object.defineProperty(target, key, { value, configurable: true, writable: true });
+        return true;
+      } catch (err) {
+        console.warn(`[WebMCP] Could not attach modelContext to ${key}:`, err);
+        return false;
+      }
+    }
+  };
+
+  if (typeof document !== 'undefined') safeAttach(document, 'modelContext', modelContext);
   if (typeof window !== 'undefined') {
-    window.modelContext = modelContext;
-    window.UmeggaMCP = modelContext;
+    safeAttach(window, 'modelContext', modelContext);
+    safeAttach(window, 'UmeggaMCP', modelContext);
   }
 
   interface StandardModelContext {
     registerTool?: (tool: any) => any;
   }
-  const standardContext =
-    typeof navigator !== 'undefined'
-      ? (navigator as unknown as { modelContext?: StandardModelContext }).modelContext
-      : undefined;
+  // Merely touching navigator.modelContext is safe, but guard anyway so no
+  // getter side-effect from the experimental implementation can break init.
+  let standardContext: StandardModelContext | undefined;
+  try {
+    standardContext =
+      typeof navigator !== 'undefined'
+        ? (navigator as unknown as { modelContext?: StandardModelContext }).modelContext
+        : undefined;
+  } catch (err) {
+    console.warn('[WebMCP] navigator.modelContext is not accessible:', err);
+    standardContext = undefined;
+  }
 
   const mirrorToolToStandardContext = (tool: { name: string; description: string; parameters?: any; execute: (args: any) => any }) => {
     if (!standardContext || typeof standardContext.registerTool !== 'function') return;
