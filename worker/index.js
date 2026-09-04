@@ -79,7 +79,7 @@ export default {
           model: env.AI_MODEL || 'llama-3.3-70b-versatile',
           temperature: 0.9,
           top_p: 0.9,
-          max_tokens: 200,
+          max_tokens: 350,
           messages: [
             { role: 'system', content: systemPrompt(agent) },
             ...conversation,
