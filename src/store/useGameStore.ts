@@ -1,4 +1,4 @@
-function snapshotForPersistence(state: GameStore): PersistedGameState {
+function snapshotForPersistence(state: GameStore): Omit<PersistedGameState, 'messages'> {
   return {
     player: state.player,
     agents: state.agents,
@@ -6,7 +6,9 @@ function snapshotForPersistence(state: GameStore): PersistedGameState {
     dailyQuests: state.dailyQuests,
     dailyQuestDay: state.dailyQuestDay,
     world: state.world,
-    messages: state.messages,
+    // Chat is intentionally NOT persisted here: the global snapshot is shared
+    // by every browser, and messages must stay session-scoped. Chat history
+    // lives only in the umega_chat_messages table, filtered per session id.
     interventionRequests: state.interventionRequests,
     godMode: state.godMode,
   };
@@ -1111,8 +1113,12 @@ if (typeof window !== 'undefined') {
   void Promise.all([loadPersistedAgents(), loadPersistedGameState(), loadChatMessages(), loadWorldEvents(), loadChronicles(), loadLaws(), loadMCPLogs()]).then(([agents, remoteState, remoteMessages, remoteEvents, remoteChronicles, remoteLaws, remoteMCPLogs]) => {
     if (remoteState) {
       const restored = remoteState as Partial<PersistedGameState>;
+      // Never restore chat from the shared snapshot: it is global state, and
+      // messages must remain private to this browser's chat session.
+      const { messages: _legacyMessages, ...restoredWithoutMessages } = restored as Record<string, unknown>;
+      void _legacyMessages;
       useGameStore.setState({
-        ...restored,
+        ...restoredWithoutMessages,
         ...(Array.isArray(restored.agents) ? { agents: restored.agents.map(normalizeAgent) } : {}),
         ...(restored.world ? {
           world: normalizeWorld({ ...restored.world, chronicles: [], activeLaws: [] }),
