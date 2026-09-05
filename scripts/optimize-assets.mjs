@@ -41,7 +41,7 @@ for (const file of files) {
     }
   } catch (err) {
     console.error(`FAILED ${file}:`, err.message);
-    try { renameSync(tmp, file); } catch {}
+    try { renameSync(tmp, file); } catch { }
   }
 }
 console.log(`\nDone. ${changed} files optimized, ${(savedTotal / 1024 / 1024).toFixed(1)} MB saved.`);
