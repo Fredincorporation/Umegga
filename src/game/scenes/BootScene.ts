@@ -102,6 +102,8 @@ export class BootScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, fitLoadingArtwork, this);
       this.scale.off(Phaser.Scale.Events.RESIZE, layoutProgress, this);
       loadingArtwork?.destroy();
+      // PERF: free the 6.3MB GPU texture — the loading screen is never shown again.
+      this.textures.remove('loading-screen');
       progressBar.destroy();
       progressBox.destroy();
       loadingText.destroy();
@@ -134,10 +136,9 @@ export class BootScene extends Phaser.Scene {
     });
 
     // Special Environment Features
-    this.load.image('env_city_plaza', assetUrl('/environment/city_plaza.png'));
-    this.load.image('env_stone_pathway', assetUrl('/environment/stone_pathway.jpg'));
-    this.load.image('env_heaven', assetUrl('/environment/heaven.jpg'));
-    this.load.image('env_mystical_garden', assetUrl('/environment/mystical_garden.png'));
+    // PERF: city_plaza / stone_pathway / heaven / mystical_garden are never
+    // referenced by any scene — loading them wasted ~2.4MB of download and
+    // ~11MB of GPU texture memory. Only the two Outer Wastes images are used.
     this.load.image('env_outer', assetUrl('/environment/outer.png'));
     this.load.image('env_clifs', assetUrl('/environment/clifs.png'));
 
