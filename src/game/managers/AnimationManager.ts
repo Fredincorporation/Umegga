@@ -66,20 +66,20 @@ export const CHARACTER_FRAME_MAP: Record<CharacterId, CharacterFrameScheme> = {
 export function getCharacterAvatarUrl(characterId: CharacterId): string {
   const scheme = CHARACTER_FRAME_MAP[characterId];
   if (!scheme) {
-    return `/characters/${characterId}/idle/auto-001.png`;
+    return assetUrl(`/characters/${characterId}/idle/auto-001.png`);
   }
 
   const idleCfg = scheme.idle;
   if (idleCfg.pattern === 'auto') {
     const start = idleCfg.startIdx ?? 1;
-    return `/characters/${characterId}/idle/auto-${String(start).padStart(3, '0')}.png`;
+    return assetUrl(`/characters/${characterId}/idle/auto-${String(start).padStart(3, '0')}.png`);
   }
 
   const folder = characterId === 'kaelen' ? 'kealen' : characterId;
   const start = idleCfg.startIdx ?? 0;
   const numStr = String(start).padStart(2, '0');
   const filename = `${numStr}_${idleCfg.prefix}.png`;
-  return `/characters/${folder}/idle/${filename}`;
+  return assetUrl(`/characters/${folder}/idle/${filename}`);
 }
 
 export class AnimationManager {

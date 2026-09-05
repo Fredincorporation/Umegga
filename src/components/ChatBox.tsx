@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { MessageSquare, Send, ChevronUp, ChevronDown } from 'lucide-react';
+import { assetUrl } from '../config/assets';
 
 export const ChatBox: React.FC = () => {
   const { messages, addMessage, sendMessageToAgent, player, selectedAgentId, nearbyAgent, activePanel } = useGameStore();
@@ -131,7 +132,7 @@ export const ChatBox: React.FC = () => {
                 >
                   {msg.avatarId && (
                     <img
-                      src={`/characters/${msg.avatarId}/idle/auto-001.png`}
+                      src={assetUrl(`/characters/${msg.avatarId}/idle/auto-001.png`)}
                       alt={msg.sender}
                       className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 shrink-0 object-contain mt-0.5"
                     />

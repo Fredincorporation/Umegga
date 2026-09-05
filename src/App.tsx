@@ -11,6 +11,7 @@ import { VirtualControls } from './components/VirtualControls';
 import { ProximityPrompt } from './components/ProximityPrompt';
 import { QuestTracker } from './components/QuestTracker';
 import { initWebMCP } from './services/webmcp';
+import { assetUrl } from './config/assets';
 import { InterventionRequests } from './components/InterventionRequests';
 import { WorldMap } from './components/WorldMap';
 
@@ -36,7 +37,7 @@ export const App: React.FC = () => {
       {!gameReady && (
         <div className="absolute inset-0 z-10 flex items-end justify-center bg-slate-950 p-6 pointer-events-none">
           <img
-            src="/loading-screen.png"
+            src={assetUrl('/loading-screen.png')}
             alt="Loading Umegga"
             className="absolute inset-0 h-full w-full object-contain"
           />
