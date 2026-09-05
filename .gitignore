@@ -19,3 +19,7 @@ worker/.dev.vars
 .wrangler-state/
 
 worker/.wrangler/
+
+mem*.txt
+perf*.txt
+qa-*.mjs
