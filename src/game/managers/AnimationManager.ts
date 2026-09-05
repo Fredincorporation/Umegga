@@ -114,8 +114,8 @@ export class AnimationManager {
 
   /**
    * Preloads individual PNG frames for a character. Called from BootScene with
-   * ['idle'] only so startup downloads ~1/3 of the frames; walk/talk are
-   * lazy-loaded on first use via ensureAnimation().
+   * ['idle'] only for characters present at boot; walk/talk and off-screen
+   * characters are lazy-loaded on first use via ensureAnimation().
    */
   public static preloadCharacter(scene: Phaser.Scene, characterId: CharacterId, animTypes: AnimationType[] = ['idle', 'walk', 'talk']) {
     const scheme = CHARACTER_FRAME_MAP[characterId];
@@ -128,6 +128,16 @@ export class AnimationManager {
         scene.load.image(frameKey, this.frameFilePath(characterId, animType, i));
       }
     });
+  }
+
+  /**
+   * Ensures a character's IDLE animation is loaded, streaming it in if it was
+   * skipped at boot (character not present in the starting scene).
+   * Does NOT play anything — the sprite plays once frames exist via playAnim().
+   */
+  public static ensureIdle(scene: Phaser.Scene, characterId: CharacterId) {
+    if (scene.anims.exists(`${characterId}_idle`)) return;
+    this.ensureAnimation(scene, characterId, 'idle');
   }
 
   /** Animations currently being lazy-loaded (keyed by `${characterId}_${animType}`). */

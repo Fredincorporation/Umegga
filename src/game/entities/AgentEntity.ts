@@ -116,7 +116,9 @@ export class AgentEntity extends Phaser.GameObjects.Container {
       }, 2500);
     });
 
-    // Start Idle Animation
+    // Start Idle Animation (streams frames lazily if this character wasn't
+    // preloaded at boot — playAnim falls back gracefully until they arrive)
+    AnimationManager.ensureIdle(scene, this.characterId);
     AnimationManager.playAnim(this.sprite, this.characterId, 'idle');
     this.wanderTimer = Math.random() * 2000;
     this.setDepth(this.y);

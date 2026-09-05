@@ -1,6 +1,7 @@
 import { assetUrl } from '../../config/assets';
 import { AnimationManager } from '../managers/AnimationManager';
-import { CharacterId } from '../../types/game';
+import { CharacterId, SceneKey } from '../../types/game';
+import { INITIAL_AGENTS } from '../../constants/characters';
 import { audioManager } from '../../services/AudioManager';
 
 export class BootScene extends Phaser.Scene {
@@ -163,7 +164,14 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`prop_${p}`, assetUrl(`/props/${p}.png`));
     });
 
-    // 6. Preload all supported character frame sequences
+    // 6. Preload idle frames ONLY for characters present in the starting scene
+    // (plus the player). Everyone else streams in lazily via ensureIdle() /
+    // ensureAnimation() the first time they appear — cuts boot downloads from
+    // ~108 frame PNGs to ~36.
+    const STARTING_SCENE: SceneKey = 'SanctuaryScene';
+    const startingCharacters = new Set<CharacterId>(
+      INITIAL_AGENTS.filter((a) => a.currentScene === STARTING_SCENE).map((a) => a.characterId)
+    );
     const characters: CharacterId[] = [
       'aelira',
       'torren',
@@ -176,11 +184,10 @@ export class BootScene extends Phaser.Scene {
       'vance',
     ];
 
-    // Boot preloads IDLE frames only (~1/3 of the ~1,700 character PNGs).
-    // Walk/talk frames stream in lazily via AnimationManager.ensureAnimation()
-    // the first time they're needed, so startup stays fast.
     characters.forEach((charId) => {
-      AnimationManager.preloadCharacter(this, charId, ['idle']);
+      if (charId === 'aelira' || startingCharacters.has(charId)) {
+        AnimationManager.preloadCharacter(this, charId, ['idle']);
+      }
     });
   }
 

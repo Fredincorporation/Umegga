@@ -39,7 +39,10 @@ export const App: React.FC = () => {
           <img
             src={assetUrl('/loading-screen.png')}
             alt="Loading Umegga"
+            fetchPriority="high"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-contain"
+            style={{ backgroundColor: '#0b1220' }}
           />
           <div className="relative mb-4 w-full max-w-lg rounded-xl border border-cyan-300/70 bg-slate-950/90 p-4 text-center shadow-2xl">
             <div className="mb-2 flex items-center justify-between font-fantasy text-sm text-slate-100">
