@@ -22,6 +22,9 @@ export class Player extends Phaser.GameObjects.Container {
   private interactKey?: Phaser.Input.Keyboard.Key;
 
   private currentAnimType: AnimationType = 'idle';
+  private lastFrameW = 0;
+  private lastFrameH = 0;
+  private spriteScaleApplied = false;
   private baseSpeed = 165;
   private lastSyncTime = 0;
 
@@ -41,9 +44,8 @@ export class Player extends Phaser.GameObjects.Container {
     // 3. Main Animated Sprite
     const initialFrameKey = `${characterId}_idle_001`;
     this.sprite = scene.add.sprite(0, 0, initialFrameKey);
-    const playerSource = this.sprite.texture.getSourceImage() as HTMLImageElement;
-    this.sprite.setScale(Math.min(76 / (playerSource.width || this.sprite.width), 96 / (playerSource.height || this.sprite.height)));
     this.sprite.setOrigin(0.5, 0.7);
+    this.normalizeSpriteScale();
     this.add(this.sprite);
 
     // 4. Floating Name Label
@@ -110,9 +112,29 @@ export class Player extends Phaser.GameObjects.Container {
   /**
    * Update cycle for Player (called in scene update)
    */
+  /**
+   * Character frames are lazy-loaded, so the texture may be a small placeholder
+   * when the sprite is created. Recompute scale from the CURRENT frame so the
+   * character always fits its intended size once real frames arrive.
+   */
+  private normalizeSpriteScale() {
+    const src = this.sprite.texture.getSourceImage() as HTMLImageElement | undefined;
+    if (!src || !src.width || !src.height) return;
+    // Only rescale when the frame size actually changed from what we scaled for.
+    if (this.lastFrameW === src.width && this.lastFrameH === src.height && this.spriteScaleApplied) return;
+    this.lastFrameW = src.width;
+    this.lastFrameH = src.height;
+    const s = Math.min(76 / src.width, 96 / src.height);
+    if (s > 0 && Number.isFinite(s)) {
+      this.sprite.setScale(s);
+      this.spriteScaleApplied = true;
+    }
+  }
+
   public update(time: number, _delta: number) {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
+    this.normalizeSpriteScale();
 
     const state = useGameStore.getState();
 
@@ -209,5 +231,5 @@ export class Player extends Phaser.GameObjects.Container {
     }
   }
 
-  
+
 }

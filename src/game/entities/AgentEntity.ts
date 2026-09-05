@@ -19,6 +19,9 @@ export class AgentEntity extends Phaser.GameObjects.Container {
   private nextWanderInterval = 4000;
   private speed = 75;
   private currentAnimType: AnimationType = 'idle';
+  private lastFrameW = 0;
+  private lastFrameH = 0;
+  private spriteScaleApplied = false;
   public characterId: AgentState['characterId'];
   private isConversing = false;
   private conversationCooldown = 0;
@@ -43,9 +46,8 @@ export class AgentEntity extends Phaser.GameObjects.Container {
     // 2. Main Animated Sprite
     const frameKey = `${this.characterId}_idle_001`;
     this.sprite = scene.add.sprite(0, 0, frameKey);
-    const agentSource = this.sprite.texture.getSourceImage() as HTMLImageElement;
-    this.sprite.setScale(Math.min(76 / (agentSource.width || this.sprite.width), 96 / (agentSource.height || this.sprite.height)));
     this.sprite.setOrigin(0.5, 0.7);
+    this.normalizeSpriteScale();
     this.add(this.sprite);
 
     // 3. Name & Role Tag
@@ -237,6 +239,26 @@ export class AgentEntity extends Phaser.GameObjects.Container {
   /**
    * AI Autonomous Update Loop
    */
+  /**
+   * Character frames are lazy-loaded, so the sprite may briefly use a small
+   * placeholder texture. Rescale whenever the frame size changes so the agent
+   * always fits its intended size once real frames arrive.
+   */
+  private normalizeSpriteScale() {
+    const frame = this.sprite.frame;
+    const w = frame?.realWidth ?? 0;
+    const h = frame?.realHeight ?? 0;
+    if (!w || !h) return;
+    if (this.lastFrameW === w && this.lastFrameH === h && this.spriteScaleApplied) return;
+    this.lastFrameW = w;
+    this.lastFrameH = h;
+    const s = Math.min(76 / w, 96 / h);
+    if (s > 0 && Number.isFinite(s)) {
+      this.sprite.setScale(s);
+      this.spriteScaleApplied = true;
+    }
+  }
+
   public update(_time: number, delta: number) {
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
@@ -405,6 +427,7 @@ export class AgentEntity extends Phaser.GameObjects.Container {
 
     // 2.5D Depth sorting & perspective scaling
     this.setDepth(this.y);
+    this.normalizeSpriteScale();
     const sceneHeight = this.scene.physics.world.bounds.height || 1200;
     const perspectiveScale = Phaser.Math.Clamp(0.92 + (this.y / sceneHeight) * 0.18, 0.92, 1.1);
     this.setScale(perspectiveScale);
