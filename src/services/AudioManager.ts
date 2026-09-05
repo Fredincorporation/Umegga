@@ -74,7 +74,9 @@ class AudioManager {
     if (existingTrack) return existingTrack;
 
     const track = new Audio(TRACK_URLS[index]);
-    track.preload = 'auto';
+    // Metadata only: avoids eagerly buffering the full 2.6MB OGG before it is
+    // actually needed. The browser streams the audio once playback starts.
+    track.preload = 'metadata';
     track.autoplay = false;
     track.volume = this.volume;
     track.addEventListener('ended', this.handleTrackEnded);

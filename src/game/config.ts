@@ -24,7 +24,9 @@ export function createGameConfig(container: HTMLElement, onReady: () => void, on
       height: '100%',
     },
     loader: {
-      maxParallelDownloads: 8,
+      // HTTP/2 multiplexes requests to the CDN, so a high parallel cap is safe
+      // and dramatically cuts boot time (~230 asset requests at boot).
+      maxParallelDownloads: 32,
     },
     callbacks: {
       preBoot: (game) => {
