@@ -37,5 +37,14 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    rollupOptions: {
+      output: {
+        // Keep the ~1.2MB Phaser engine out of the React entry chunk so the
+        // app shell downloads fast and the engine loads in parallel/cacheable.
+        manualChunks(id) {
+          if (id.includes('node_modules/phaser')) return 'phaser';
+        },
+      },
+    },
   },
 });

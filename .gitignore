@@ -19,6 +19,12 @@ worker/.dev.vars
 .wrangler-state/
 
 worker/.wrangler/
+.wrangler/
+
+# Local audit artifacts
+bundle-report.html
+scripts/analyze-bundle.mjs
+scripts/analyze-deps.mjs
 
 mem*.txt
 perf*.txt
