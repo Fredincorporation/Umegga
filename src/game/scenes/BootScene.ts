@@ -176,8 +176,11 @@ export class BootScene extends Phaser.Scene {
       'vance',
     ];
 
+    // Boot preloads IDLE frames only (~1/3 of the ~1,700 character PNGs).
+    // Walk/talk frames stream in lazily via AnimationManager.ensureAnimation()
+    // the first time they're needed, so startup stays fast.
     characters.forEach((charId) => {
-      AnimationManager.preloadCharacter(this, charId);
+      AnimationManager.preloadCharacter(this, charId, ['idle']);
     });
   }
 

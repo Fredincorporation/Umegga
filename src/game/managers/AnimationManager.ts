@@ -90,35 +90,62 @@ export class AnimationManager {
   }
 
   /**
-   * Preloads all individual PNG frames for a given character with flexible naming patterns.
+   * Builds the file path for a single animation frame. Shared by boot preload
+   * and the lazy loader so both resolve identical URLs.
    */
-  public static preloadCharacter(scene: Phaser.Scene, characterId: CharacterId) {
-    const animTypes: AnimationType[] = ['idle', 'walk', 'talk'];
+  private static frameFilePath(characterId: CharacterId, animType: AnimationType, index: number): string {
     const scheme = CHARACTER_FRAME_MAP[characterId];
+    const cfg = scheme?.[animType] || { pattern: 'auto' as const, count: 8 };
+    const count = cfg.count || 8;
+    const startIdx = cfg.startIdx !== undefined ? cfg.startIdx : (cfg.pattern === 'auto' ? 1 : 0);
+    const i = Math.min(index, count - 1);
+    const curIdx = startIdx + i;
+    let filename = '';
+    if (cfg.pattern === 'auto') {
+      filename = `auto-${String(curIdx).padStart(3, '0')}.png`;
+    } else if (cfg.pattern === 'numbered') {
+      filename = `${String(curIdx).padStart(2, '0')}_${cfg.prefix}.png`;
+    } else if (cfg.customFiles && cfg.customFiles[i]) {
+      filename = cfg.customFiles[i];
+    }
     const folder = characterId === 'kaelen' ? 'kealen' : characterId;
+    return assetUrl(`/characters/${folder}/${animType}/${filename}`);
+  }
+
+  /**
+   * Preloads individual PNG frames for a character. Called from BootScene with
+   * ['idle'] only so startup downloads ~1/3 of the frames; walk/talk are
+   * lazy-loaded on first use via ensureAnimation().
+   */
+  public static preloadCharacter(scene: Phaser.Scene, characterId: CharacterId, animTypes: AnimationType[] = ['idle', 'walk', 'talk']) {
+    const scheme = CHARACTER_FRAME_MAP[characterId];
 
     animTypes.forEach((animType) => {
-      const cfg = scheme?.[animType] || { pattern: 'auto', count: 8 };
-      const count = cfg.count || 8;
-      const startIdx = cfg.startIdx !== undefined ? cfg.startIdx : (cfg.pattern === 'auto' ? 1 : 0);
+      const count = scheme?.[animType]?.count || 8;
 
       for (let i = 0; i < count; i++) {
-        const curIdx = startIdx + i;
-        let filename = '';
-
-        if (cfg.pattern === 'auto') {
-          filename = `auto-${String(curIdx).padStart(3, '0')}.png`;
-        } else if (cfg.pattern === 'numbered') {
-          filename = `${String(curIdx).padStart(2, '0')}_${cfg.prefix}.png`;
-        } else if (cfg.customFiles && cfg.customFiles[i]) {
-          filename = cfg.customFiles[i];
-        }
-
         const frameKey = `${characterId}_${animType}_${String(i + 1).padStart(3, '0')}`;
-        const filePath = assetUrl(`/characters/${folder}/${animType}/${filename}`);
-
-        scene.load.image(frameKey, filePath);
+        scene.load.image(frameKey, this.frameFilePath(characterId, animType, i));
       }
+    });
+  }
+
+  /** Animations currently being lazy-loaded (keyed by `${characterId}_${animType}`). */
+  private static lazyLoading = new Set<string>();
+
+  /**
+   * Ensures an animation exists, streaming its frames in on first use.
+   * Used for walk/talk frames skipped during boot to keep startup fast.
+   */
+  public static ensureAnimation(scene: Phaser.Scene, characterId: CharacterId, animType: AnimationType) {
+    const animKey = `${characterId}_${animType}`;
+    if (scene.anims.exists(animKey) || this.lazyLoading.has(animKey)) return;
+    this.lazyLoading.add(animKey);
+    this.preloadCharacter(scene, characterId, [animType]);
+    scene.load.start();
+    scene.load.once('complete', () => {
+      this.lazyLoading.delete(animKey);
+      new AnimationManager(scene).createCharacterAnimations(characterId);
     });
   }
 
@@ -167,9 +194,20 @@ export class AnimationManager {
    */
   public static playAnim(sprite: Phaser.GameObjects.Sprite, characterId: CharacterId, animType: AnimationType) {
     const animKey = `${characterId}_${animType}`;
-    if (sprite.scene && sprite.scene.anims.exists(animKey)) {
+    if (!sprite.scene) return;
+    // Lazy-stream walk/talk frames on first use (they are not preloaded at boot).
+    if (!sprite.scene.anims.exists(animKey)) {
+      this.ensureAnimation(sprite.scene, characterId, animType);
+    }
+    if (sprite.scene.anims.exists(animKey)) {
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey, true);
+      }
+    } else if (animType !== 'idle') {
+      // Fall back to idle while the new frames stream in.
+      const idleKey = `${characterId}_idle`;
+      if (sprite.scene.anims.exists(idleKey) && sprite.anims.currentAnim?.key !== idleKey) {
+        sprite.play(idleKey, true);
       }
     }
   }
