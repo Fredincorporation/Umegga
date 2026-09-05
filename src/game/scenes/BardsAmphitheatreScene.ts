@@ -53,7 +53,7 @@ export class BardsAmphitheatreScene extends BaseScene {
     });
   }
 
-  getPortals(): PortalDef[] {
+  protected definePortals(): PortalDef[] {
     return [
       {
         id: 'portal_bard_to_sanc',
@@ -88,7 +88,7 @@ export class BardsAmphitheatreScene extends BaseScene {
     ];
   }
 
-  getBuildings(): BuildingDef[] {
+  protected defineBuildings(): BuildingDef[] {
     return [
       {
         x: 600,
@@ -116,7 +116,7 @@ export class BardsAmphitheatreScene extends BaseScene {
     ];
   }
 
-  getProps(): PropDef[] {
+  protected defineProps(): PropDef[] {
     return [
       { x: 360, y: 430, texture: 'prop_banner' },
       { x: 840, y: 430, texture: 'prop_banner' },

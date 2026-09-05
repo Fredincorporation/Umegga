@@ -16,7 +16,7 @@ export class OuterWastesScene extends BaseScene {
     this.add.rectangle(520, 850, 940, 56, 0x8b7355, 0.14).setDepth(-3);
   }
 
-  getPortals(): PortalDef[] {
+  protected definePortals(): PortalDef[] {
     return [
       {
         id: 'portal_wastes_to_sanc',
@@ -41,7 +41,7 @@ export class OuterWastesScene extends BaseScene {
     ];
   }
 
-  getBuildings(): BuildingDef[] {
+  protected defineBuildings(): BuildingDef[] {
     return [
       {
         x: 820,
@@ -53,7 +53,7 @@ export class OuterWastesScene extends BaseScene {
     ];
   }
 
-  getProps(): PropDef[] {
+  protected defineProps(): PropDef[] {
     return [
       { x: 260, y: 390, texture: 'prop_story_stone', scale: 0.5, isSolid: true },
       { x: 720, y: 700, texture: 'prop_pathway_marker', scale: 0.45, isSolid: true },

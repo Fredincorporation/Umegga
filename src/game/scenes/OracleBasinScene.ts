@@ -53,7 +53,7 @@ export class OracleBasinScene extends BaseScene {
     });
   }
 
-  getPortals(): PortalDef[] {
+  protected definePortals(): PortalDef[] {
     return [
       {
         id: 'portal_oracle_to_sanc',
@@ -88,7 +88,7 @@ export class OracleBasinScene extends BaseScene {
     ];
   }
 
-  getBuildings(): BuildingDef[] {
+  protected defineBuildings(): BuildingDef[] {
     return [
       {
         x: 600,
@@ -114,7 +114,7 @@ export class OracleBasinScene extends BaseScene {
     ];
   }
 
-  getProps(): PropDef[] {
+  protected defineProps(): PropDef[] {
     return [
       { x: 600, y: 510, texture: 'prop_memory_crystal', scale: 0.65, isSolid: true },
       { x: 430, y: 560, texture: 'prop_communication_orb', scale: 0.55, isSolid: true },

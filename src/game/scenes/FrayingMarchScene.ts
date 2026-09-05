@@ -51,7 +51,7 @@ export class FrayingMarchScene extends BaseScene {
     });
   }
 
-  getPortals(): PortalDef[] {
+  protected definePortals(): PortalDef[] {
     return [
       {
         id: 'portal_march_to_sanc',
@@ -96,7 +96,7 @@ export class FrayingMarchScene extends BaseScene {
     ];
   }
 
-  getBuildings(): BuildingDef[] {
+  protected defineBuildings(): BuildingDef[] {
     return [
       {
         x: 600,
@@ -122,7 +122,7 @@ export class FrayingMarchScene extends BaseScene {
     ];
   }
 
-  getProps(): PropDef[] {
+  protected defineProps(): PropDef[] {
     return [
       { x: 440, y: 520, texture: 'prop_pathway_marker', isSolid: true },
       { x: 760, y: 520, texture: 'prop_story_stone', isSolid: true },

@@ -54,6 +54,9 @@ export abstract class BaseScene extends Phaser.Scene {
   public solidGroup!: Phaser.Physics.Arcade.StaticGroup;
 
   protected portals: PortalDef[] = [];
+  private cachedProps?: PropDef[];
+  private cachedBuildings?: BuildingDef[];
+  private cachedPortals?: PortalDef[];
   protected isTransitioning = false;
   protected portalCooldown = 800;
   protected lastTransitionTime = 0;
@@ -80,14 +83,36 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   abstract createEnvironment(): void;
-  abstract getPortals(): PortalDef[];
-  abstract getBuildings(): BuildingDef[];
-  abstract getProps(): PropDef[];
+  /** Content definition hooks — called exactly once per scene activation in init(). */
+  protected abstract definePortals(): PortalDef[];
+  protected abstract defineBuildings(): BuildingDef[];
+  protected abstract defineProps(): PropDef[];
+  /** PERF: subclasses define their content in define*() methods (called once in init);
+   * these getters return the init-cached arrays so repeated calls are O(1). */
+  getPortals(): PortalDef[] {
+    return this.cachedPortals ?? [];
+  }
+
+  getBuildings(): BuildingDef[] {
+    return this.cachedBuildings ?? [];
+  }
+
+  getProps(): PropDef[] {
+    return this.cachedProps ?? [];
+  }
   abstract getDefaultSpawn(): { x: number; y: number };
 
   init(_data: SceneInitData) {
     this.isTransitioning = false;
     this.lastTransitionTime = Date.now();
+    // PERF: Resolve scene metadata ONCE per scene activation (not on every access).
+    // getBuildings() previously called getProps() internally, and getProps() had a
+    // O(n^2) dedupe + random-prop splicing step. Combined with dozens of calls during
+    // create (safe-spawn checks, structure placement, etc.), this ran that expensive
+    // step many times per scene — multiplying prop/gameobject counts and slowing load.
+    this.cachedProps = this.defineProps();
+    this.cachedBuildings = this.defineBuildings();
+    this.cachedPortals = this.definePortals();
   }
 
   create(data: SceneInitData) {
@@ -105,8 +130,8 @@ export abstract class BaseScene extends Phaser.Scene {
     // 3. Build Structures & Static Props
     this.buildDistrictStructures();
 
-    // 4. Resolve portal destinations before calculating the spawn point.
-    this.portals = this.getPortals();
+    // 4. Portals were resolved during init (cached) before calculating the spawn point.
+    this.portals = this.cachedPortals!;
 
     // 5. Spawn Player (at portal arrival or default spawn)
     const spawnPos = this.calculateSpawnPosition(data);

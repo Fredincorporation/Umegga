@@ -51,7 +51,7 @@ export class BotanistGroveScene extends BaseScene {
     });
   }
 
-  getPortals(): PortalDef[] {
+  protected definePortals(): PortalDef[] {
     return [
       {
         id: 'portal_grove_to_sanc',
@@ -86,7 +86,7 @@ export class BotanistGroveScene extends BaseScene {
     ];
   }
 
-  getBuildings(): BuildingDef[] {
+  protected defineBuildings(): BuildingDef[] {
     return [
       {
         x: 520,
@@ -112,7 +112,7 @@ export class BotanistGroveScene extends BaseScene {
     ];
   }
 
-  getProps(): PropDef[] {
+  protected defineProps(): PropDef[] {
     return [
       { x: 520, y: 500, texture: 'prop_ground_node', isSolid: true },
       { x: 350, y: 560, texture: 'prop_story_stone', isSolid: true },

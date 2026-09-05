@@ -54,7 +54,7 @@ export class SanctuaryScene extends BaseScene {
     });
   }
 
-  getPortals(): PortalDef[] {
+  protected definePortals(): PortalDef[] {
     return [
       {
         id: 'portal_sanc_to_oracle',
@@ -119,7 +119,7 @@ export class SanctuaryScene extends BaseScene {
     ];
   }
 
-  getBuildings(): BuildingDef[] {
+  protected defineBuildings(): BuildingDef[] {
     return [
       {
         x: 600,
@@ -159,7 +159,7 @@ export class SanctuaryScene extends BaseScene {
     ];
   }
 
-  getProps(): PropDef[] {
+  protected defineProps(): PropDef[] {
     return [
       { x: 600, y: 520, texture: 'prop_story_stone', isSolid: true },
       { x: 430, y: 560, texture: 'prop_law_tablet', isSolid: true },
